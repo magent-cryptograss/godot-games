@@ -15,3 +15,9 @@ Overhead adventure where Joe the Crab explores the beach, tide pools, and coral 
 
 - **Controls:** WASD to move, F to pinch, E to interact
 - **Play:** https://fibonacci2.hunter.cryptograss.live
+
+### Mega Man X7 16-bit
+A Link to the Past-style overhead action demake of Mega Man X7. Play as Axl (and unlock X by rescuing reploids!) through procedurally-generated rooms, fighting Maverick enemies with your buster and dash.
+
+- **Controls:** WASD to move, Z to jump/confirm, X to shoot, C to dash
+- **Play:** https://fibonacci3.hunter.cryptograss.live
