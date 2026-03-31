@@ -65,5 +65,4 @@ textures/canvas_textures/default_texture_filter=0
 
 [autoload]
 
-Sprites="*res://scripts/sprites.gd"
 SpriteRenderer="*res://scripts/sprite_renderer.gd"

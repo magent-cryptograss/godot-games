@@ -717,9 +717,7 @@ func _get_anim_name(moving: bool) -> String:
 
 # --- CHARACTER SPRITES ---
 func _draw_axl_sprite(x:float, y:float, dir:int, moving:bool) -> void:
-	var flip = dir < 0
-	var anim_name = _get_anim_name(moving)
-	SpriteRenderer.draw_character(self, 0, x, y + 6, anim_name, p_anim, flip)
+	SpriteRenderer.draw_character(self, 0, x, y + 6, _get_anim_name(moving), p_anim, dir < 0)
 	return
 
 func _draw_axl_sprite_OLD(x:float, y:float, dir:int, moving:bool) -> void:
@@ -775,15 +773,12 @@ func _draw_axl_sprite_OLD(x:float, y:float, dir:int, moving:bool) -> void:
 	draw_rect(Rect2(x-1+d,y-13+bob,3,1), Color(0.85,0.70,0.60))  # mouth
 
 func _draw_zero_sprite(x:float, y:float, dir:int, moving:bool) -> void:
-	var flip = dir < 0
-	var anim_name = _get_anim_name(moving)
-	SpriteRenderer.draw_character(self, 1, x, y + 6, anim_name, p_anim, flip)
-	# Saber effect when slashing
+	SpriteRenderer.draw_character(self, 1, x, y + 6, _get_anim_name(moving), p_anim, dir < 0)
+	# Saber slash arc effect
 	if p_shoot_timer > 0 and active_char == 1:
 		var d = float(dir)
 		var t = p_shoot_timer / 0.3
-		draw_arc(Vector2(x+d*6, y-12), 18, -0.5+t*0.5, 0.5+t*0.5, 8, Color(0.3,1,0.4, t), 3)
-		draw_arc(Vector2(x+d*6, y-12), 20, -0.4+t*0.4, 0.4+t*0.4, 6, Color(0.7,1,0.8, t*0.4), 5)
+		draw_arc(Vector2(x+d*8, y-14), 20, -0.5+t*0.5, 0.5+t*0.5, 8, Color(0.3,1,0.4, t), 3)
 	return
 
 func _draw_zero_sprite_OLD(x:float, y:float, dir:int, moving:bool) -> void:
@@ -847,9 +842,7 @@ func _draw_zero_sprite_OLD(x:float, y:float, dir:int, moving:bool) -> void:
 	draw_rect(Rect2(x+2+d,y-14+bob,1,1), Color(0.2,0.4,0.9))
 
 func _draw_x_sprite(x:float, y:float, dir:int, moving:bool) -> void:
-	var flip = dir < 0
-	var anim_name = _get_anim_name(moving)
-	SpriteRenderer.draw_character(self, 2, x, y + 6, anim_name, p_anim, flip)
+	SpriteRenderer.draw_character(self, 2, x, y + 6, _get_anim_name(moving), p_anim, dir < 0)
 	return
 
 func _draw_x_sprite_OLD(x:float, y:float, dir:int, moving:bool) -> void:
@@ -907,9 +900,20 @@ func _draw_enemy_sprite(x:float, y:float, ai:String, anim:float, dir:float) -> v
 	draw_circle(Vector2(x,y+5),5,Color(0,0,0,0.15))
 	match ai:
 		"walk":
-			# Metool — pixel art sprite
-			var flip = dir < 0
-			Sprites.draw_sprite(self, Sprites.METOOL_SPRITE, Sprites.MET_PAL, x, y + 2, flip)
+			# Metool — hardhat enemy
+			var hat = Color(0.85,0.75,0.2)
+			var hat_dk = Color(0.65,0.55,0.1)
+			draw_rect(Rect2(x-4,y-2,3,4), Color(0.2,0.2,0.25))
+			draw_rect(Rect2(x+1,y-2,3,4), Color(0.2,0.2,0.25))
+			draw_circle(Vector2(x,y-6),7,hat)
+			draw_circle(Vector2(x,y-7),6,Color(0.92,0.82,0.3))
+			draw_rect(Rect2(x-7,y-4,14,2),hat_dk)
+			draw_rect(Rect2(x-1,y-9,2,3),hat_dk)
+			draw_rect(Rect2(x-2,y-8,4,1),hat_dk)
+			draw_rect(Rect2(x-3,y-3,2,2),Color.WHITE)
+			draw_rect(Rect2(x+1,y-3,2,2),Color.WHITE)
+			draw_rect(Rect2(x-2,y-2,1,1),Color.BLACK)
+			draw_rect(Rect2(x+2,y-2,1,1),Color.BLACK)
 		"fly":
 			# Bat Bone — detailed with wing animation
 			var wing = sin(anim*8)*4
