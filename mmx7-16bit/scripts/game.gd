@@ -689,17 +689,37 @@ func _draw_stage() -> void:
 	# HUD
 	_draw_hud()
 
+# --- ANIMATION STATE HELPER ---
+func _get_anim_name(moving: bool) -> String:
+	var shooting = p_shoot_timer > 0
+	match p_state:
+		PState.IDLE:
+			return "idle_shoot" if shooting else "idle"
+		PState.WALK:
+			return "walk_shoot" if shooting else "walk"
+		PState.DASH:
+			return "dash_shoot" if shooting else "dash"
+		PState.JUMP:
+			return "jump_shoot" if shooting else "jump"
+		PState.FALL:
+			return "jump_shoot" if shooting else "fall"
+		PState.WALL_SLIDE:
+			return "wall_slide"
+		PState.WALL_JUMP:
+			return "wall_jump"
+		PState.HURT:
+			return "hurt"
+		PState.DEAD:
+			return "death"
+		PState.LADDER:
+			return "ladder_shoot" if shooting else "ladder"
+	return "idle"
+
 # --- CHARACTER SPRITES ---
 func _draw_axl_sprite(x:float, y:float, dir:int, moving:bool) -> void:
 	var flip = dir < 0
-	var bob_y = sin(p_anim*8)*1.0 if moving else 0.0
-	# Use pixel art sprite
-	Sprites.draw_sprite(self, Sprites.AXL_STAND, Sprites.AXL_PAL, x, y + bob_y + 6, flip)
-	# Buster arm when shooting
-	if p_shoot_timer > 0 and active_char == 0:
-		var d = float(dir)
-		draw_rect(Rect2(x+d*7, y-10+bob_y, d*5, 2), Color(0.45,0.45,0.5))
-		draw_rect(Rect2(x+d*11, y-11+bob_y, d*3, 4), Color(0.55,0.55,0.6))
+	var anim_name = _get_anim_name(moving)
+	SpriteRenderer.draw_character(self, 0, x, y + 6, anim_name, p_anim, flip)
 	return
 
 func _draw_axl_sprite_OLD(x:float, y:float, dir:int, moving:bool) -> void:
@@ -756,21 +776,14 @@ func _draw_axl_sprite_OLD(x:float, y:float, dir:int, moving:bool) -> void:
 
 func _draw_zero_sprite(x:float, y:float, dir:int, moving:bool) -> void:
 	var flip = dir < 0
-	var bob_y = sin(p_anim*8)*1.0 if moving else 0.0
-	Sprites.draw_sprite(self, Sprites.ZERO_STAND, Sprites.ZERO_PAL, x, y + bob_y + 6, flip)
-	# Flowing hair trail when moving
-	if moving:
-		var d = float(dir)
-		for i in range(4):
-			var hx = x - d*(4+i*3) + sin(p_anim*3+i)*1.5
-			var hy = y - 14 + i*2 + sin(p_anim*4+i*0.7)*1.5 + bob_y
-			draw_rect(Rect2(hx, hy, 2, 2), Color(0.95,0.85,0.28, 0.8-i*0.15))
-	# Saber when slashing
+	var anim_name = _get_anim_name(moving)
+	SpriteRenderer.draw_character(self, 1, x, y + 6, anim_name, p_anim, flip)
+	# Saber effect when slashing
 	if p_shoot_timer > 0 and active_char == 1:
 		var d = float(dir)
-		var slen = 16
-		draw_line(Vector2(x+d*6,y-12+bob_y),Vector2(x+d*(6+slen),y-16+bob_y), Color(0.3,1,0.4), 2)
-		draw_line(Vector2(x+d*6,y-12+bob_y),Vector2(x+d*(6+slen),y-16+bob_y), Color(0.7,1,0.8,0.4), 4)
+		var t = p_shoot_timer / 0.3
+		draw_arc(Vector2(x+d*6, y-12), 18, -0.5+t*0.5, 0.5+t*0.5, 8, Color(0.3,1,0.4, t), 3)
+		draw_arc(Vector2(x+d*6, y-12), 20, -0.4+t*0.4, 0.4+t*0.4, 6, Color(0.7,1,0.8, t*0.4), 5)
 	return
 
 func _draw_zero_sprite_OLD(x:float, y:float, dir:int, moving:bool) -> void:
@@ -835,14 +848,8 @@ func _draw_zero_sprite_OLD(x:float, y:float, dir:int, moving:bool) -> void:
 
 func _draw_x_sprite(x:float, y:float, dir:int, moving:bool) -> void:
 	var flip = dir < 0
-	var bob_y = sin(p_anim*8)*1.0 if moving else 0.0
-	Sprites.draw_sprite(self, Sprites.X_STAND, Sprites.X_PAL, x, y + bob_y + 6, flip)
-	# Buster when shooting
-	if p_shoot_timer > 0 and active_char == 2:
-		var d = float(dir)
-		draw_rect(Rect2(x+d*6, y-11+bob_y, d*5, 3), Color(0.2,0.45,0.9))
-		draw_rect(Rect2(x+d*10, y-12+bob_y, d*4, 5), Color(0.35,0.6,1))
-		draw_rect(Rect2(x+d*12, y-11+bob_y, d*2, 3), Color(0.5,0.75,1))
+	var anim_name = _get_anim_name(moving)
+	SpriteRenderer.draw_character(self, 2, x, y + 6, anim_name, p_anim, flip)
 	return
 
 func _draw_x_sprite_OLD(x:float, y:float, dir:int, moving:bool) -> void:
