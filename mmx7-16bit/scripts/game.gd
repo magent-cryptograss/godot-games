@@ -691,6 +691,18 @@ func _draw_stage() -> void:
 
 # --- CHARACTER SPRITES ---
 func _draw_axl_sprite(x:float, y:float, dir:int, moving:bool) -> void:
+	var flip = dir < 0
+	var bob_y = sin(p_anim*8)*1.0 if moving else 0.0
+	# Use pixel art sprite
+	Sprites.draw_sprite(self, Sprites.AXL_STAND, Sprites.AXL_PAL, x, y + bob_y + 6, flip)
+	# Buster arm when shooting
+	if p_shoot_timer > 0 and active_char == 0:
+		var d = float(dir)
+		draw_rect(Rect2(x+d*7, y-10+bob_y, d*5, 2), Color(0.45,0.45,0.5))
+		draw_rect(Rect2(x+d*11, y-11+bob_y, d*3, 4), Color(0.55,0.55,0.6))
+	return
+
+func _draw_axl_sprite_OLD(x:float, y:float, dir:int, moving:bool) -> void:
 	var bob = sin(p_anim*8)*1 if moving else 0
 	var step = sin(p_anim*10)*2 if moving else 0
 	var d = float(dir)
@@ -743,6 +755,25 @@ func _draw_axl_sprite(x:float, y:float, dir:int, moving:bool) -> void:
 	draw_rect(Rect2(x-1+d,y-13+bob,3,1), Color(0.85,0.70,0.60))  # mouth
 
 func _draw_zero_sprite(x:float, y:float, dir:int, moving:bool) -> void:
+	var flip = dir < 0
+	var bob_y = sin(p_anim*8)*1.0 if moving else 0.0
+	Sprites.draw_sprite(self, Sprites.ZERO_STAND, Sprites.ZERO_PAL, x, y + bob_y + 6, flip)
+	# Flowing hair trail when moving
+	if moving:
+		var d = float(dir)
+		for i in range(4):
+			var hx = x - d*(4+i*3) + sin(p_anim*3+i)*1.5
+			var hy = y - 14 + i*2 + sin(p_anim*4+i*0.7)*1.5 + bob_y
+			draw_rect(Rect2(hx, hy, 2, 2), Color(0.95,0.85,0.28, 0.8-i*0.15))
+	# Saber when slashing
+	if p_shoot_timer > 0 and active_char == 1:
+		var d = float(dir)
+		var slen = 16
+		draw_line(Vector2(x+d*6,y-12+bob_y),Vector2(x+d*(6+slen),y-16+bob_y), Color(0.3,1,0.4), 2)
+		draw_line(Vector2(x+d*6,y-12+bob_y),Vector2(x+d*(6+slen),y-16+bob_y), Color(0.7,1,0.8,0.4), 4)
+	return
+
+func _draw_zero_sprite_OLD(x:float, y:float, dir:int, moving:bool) -> void:
 	var bob = sin(p_anim*8)*1 if moving else 0
 	var step = sin(p_anim*10)*2 if moving else 0
 	var d = float(dir)
@@ -803,6 +834,18 @@ func _draw_zero_sprite(x:float, y:float, dir:int, moving:bool) -> void:
 	draw_rect(Rect2(x+2+d,y-14+bob,1,1), Color(0.2,0.4,0.9))
 
 func _draw_x_sprite(x:float, y:float, dir:int, moving:bool) -> void:
+	var flip = dir < 0
+	var bob_y = sin(p_anim*8)*1.0 if moving else 0.0
+	Sprites.draw_sprite(self, Sprites.X_STAND, Sprites.X_PAL, x, y + bob_y + 6, flip)
+	# Buster when shooting
+	if p_shoot_timer > 0 and active_char == 2:
+		var d = float(dir)
+		draw_rect(Rect2(x+d*6, y-11+bob_y, d*5, 3), Color(0.2,0.45,0.9))
+		draw_rect(Rect2(x+d*10, y-12+bob_y, d*4, 5), Color(0.35,0.6,1))
+		draw_rect(Rect2(x+d*12, y-11+bob_y, d*2, 3), Color(0.5,0.75,1))
+	return
+
+func _draw_x_sprite_OLD(x:float, y:float, dir:int, moving:bool) -> void:
 	var bob = sin(p_anim*8)*1 if moving else 0
 	var step = sin(p_anim*10)*2 if moving else 0
 	var d = float(dir)
@@ -854,42 +897,81 @@ func _draw_x_sprite(x:float, y:float, dir:int, moving:bool) -> void:
 
 # --- ENEMIES ---
 func _draw_enemy_sprite(x:float, y:float, ai:String, anim:float, dir:float) -> void:
-	draw_circle(Vector2(x,y+4),4,Color(0,0,0,0.15))
+	draw_circle(Vector2(x,y+5),5,Color(0,0,0,0.15))
 	match ai:
 		"walk":
-			# Metool
-			var hat = Color(0.85,0.75,0.2)
-			draw_rect(Rect2(x-4,y-2,3,4), Color(0.2,0.2,0.25))
-			draw_rect(Rect2(x+1,y-2,3,4), Color(0.2,0.2,0.25))
-			draw_circle(Vector2(x,y-6),7,hat)
-			draw_circle(Vector2(x,y-7),6,Color(0.92,0.82,0.3))
-			draw_rect(Rect2(x-7,y-4,14,2),Color(0.65,0.55,0.1))
-			draw_rect(Rect2(x-1,y-9,2,3),Color(0.65,0.55,0.1))
-			draw_rect(Rect2(x-2,y-8,4,1),Color(0.65,0.55,0.1))
-			draw_rect(Rect2(x-3,y-3,2,2),Color.WHITE)
-			draw_rect(Rect2(x+1,y-3,2,2),Color.WHITE)
-			draw_rect(Rect2(x-2,y-2,1,1),Color.BLACK)
-			draw_rect(Rect2(x+2,y-2,1,1),Color.BLACK)
+			# Metool — pixel art sprite
+			var flip = dir < 0
+			Sprites.draw_sprite(self, Sprites.METOOL_SPRITE, Sprites.MET_PAL, x, y + 2, flip)
 		"fly":
-			# Bat Bone
+			# Bat Bone — detailed with wing animation
 			var wing = sin(anim*8)*4
-			draw_rect(Rect2(x-11,y-3+wing,8,3),Color(0.45,0.2,0.55))
-			draw_rect(Rect2(x+3,y-3-wing,8,3),Color(0.45,0.2,0.55))
-			draw_circle(Vector2(x,y),5,Color(0.5,0.25,0.6))
-			draw_circle(Vector2(x,y-1),4,Color(0.6,0.35,0.7))
-			draw_rect(Rect2(x-3,y-3,2,2),Color(1,0.2,0.2))
-			draw_rect(Rect2(x+1,y-3,2,2),Color(1,0.2,0.2))
-			draw_rect(Rect2(x-1,y+3,1,2),Color.WHITE)
-			draw_rect(Rect2(x+1,y+3,1,2),Color.WHITE)
+			var bat_dk = Color(0.35,0.15,0.45)
+			var bat_md = Color(0.50,0.25,0.60)
+			var bat_lt = Color(0.65,0.38,0.75)
+			# Wing membranes (left)
+			for i in range(3):
+				var wx = x - 4 - i*3
+				var wy = y - 2 + wing + i*0.5
+				draw_rect(Rect2(wx, wy, 3, 2), bat_md)
+				draw_rect(Rect2(wx, wy-1, 1, 1), bat_lt)
+			# Wing membranes (right)
+			for i in range(3):
+				var wx = x + 4 + i*3
+				var wy = y - 2 - wing + i*0.5
+				draw_rect(Rect2(wx, wy, 3, 2), bat_md)
+				draw_rect(Rect2(wx+2, wy-1, 1, 1), bat_lt)
+			# Wing tips (dark points)
+			draw_rect(Rect2(x-13, y-2+wing, 2, 1), bat_dk)
+			draw_rect(Rect2(x+11, y-2-wing, 2, 1), bat_dk)
+			# Body
+			draw_rect(Rect2(x-4, y-4, 8, 7), bat_dk)
+			draw_rect(Rect2(x-3, y-3, 6, 5), bat_md)
+			draw_rect(Rect2(x-2, y-3, 4, 3), bat_lt)
+			# Ears (pointed)
+			draw_rect(Rect2(x-3, y-6, 2, 3), bat_md)
+			draw_rect(Rect2(x+1, y-6, 2, 3), bat_md)
+			draw_rect(Rect2(x-3, y-7, 1, 1), bat_dk)
+			draw_rect(Rect2(x+2, y-7, 1, 1), bat_dk)
+			# Red eyes (glowing)
+			draw_rect(Rect2(x-2, y-3, 2, 2), Color(1,0.15,0.15))
+			draw_rect(Rect2(x+1, y-3, 2, 2), Color(1,0.15,0.15))
+			draw_rect(Rect2(x-1, y-2, 1, 1), Color(1,0.5,0.5))  # eye highlight
+			draw_rect(Rect2(x+2, y-2, 1, 1), Color(1,0.5,0.5))
+			# Fangs
+			draw_rect(Rect2(x-1, y+2, 1, 2), Color(0.95,0.95,0.95))
+			draw_rect(Rect2(x+1, y+2, 1, 2), Color(0.95,0.95,0.95))
 		"turret":
-			# Cannon
-			draw_circle(Vector2(x,y),7,Color(0.35,0.35,0.42))
-			draw_circle(Vector2(x,y-1),6,Color(0.5,0.5,0.58))
+			# Cannon Mechaniloid — detailed turret
+			var base_dk = Color(0.28,0.28,0.35)
+			var base_md = Color(0.42,0.42,0.50)
+			var base_lt = Color(0.55,0.55,0.62)
+			var barrel = Color(0.50,0.50,0.58)
+			# Base (with rivets and armor plates)
+			draw_rect(Rect2(x-7, y-2, 14, 6), base_dk)
+			draw_rect(Rect2(x-6, y-1, 12, 4), base_md)
+			# Top dome
+			draw_rect(Rect2(x-5, y-6, 10, 5), base_md)
+			draw_rect(Rect2(x-4, y-7, 8, 2), base_lt)
+			draw_rect(Rect2(x-3, y-8, 6, 1), base_md)
+			# Armor plate lines
+			draw_rect(Rect2(x-6, y-2, 12, 1), base_dk)
+			draw_rect(Rect2(x-1, y-6, 2, 5), base_dk)
+			# Rivets
+			draw_rect(Rect2(x-5, y+1, 1, 1), base_lt)
+			draw_rect(Rect2(x+4, y+1, 1, 1), base_lt)
+			# Barrel (aims at player)
 			var aim = (p_pos+Vector2(0,-12)-Vector2(x+cam_x,y)).normalized()
-			draw_line(Vector2(x,y),Vector2(x+aim.x*9,y+aim.y*9),Color(0.6,0.6,0.65),3)
-			draw_circle(Vector2(x+aim.x*9,y+aim.y*9),2,Color(0.7,0.7,0.75))
-			var pulse = Color(1,0.2,0) if fmod(anim,1.5)<0.75 else Color(0.4,0.1,0)
-			draw_rect(Rect2(x-1,y-1,2,2),pulse)
+			var bx = aim.x * 10
+			var by = aim.y * 10
+			draw_line(Vector2(x, y-3), Vector2(x+bx, y-3+by), barrel, 3)
+			draw_line(Vector2(x, y-3), Vector2(x+bx, y-3+by), base_lt, 1)
+			# Muzzle
+			draw_rect(Rect2(x+bx-1, y-4+by, 3, 3), base_lt)
+			# Central eye (pulsing red)
+			var eye_bright = 0.5 + sin(anim*4)*0.5
+			draw_rect(Rect2(x-1, y-4, 2, 2), Color(1,0.2*eye_bright,0,eye_bright))
+			draw_rect(Rect2(x, y-3, 1, 1), Color(1,0.6,0.3,eye_bright*0.5))
 
 func _draw_item_sprite(x:float, y:float, type:String) -> void:
 	var bob = sin(p_anim*3)*2
