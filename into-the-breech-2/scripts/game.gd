@@ -113,8 +113,37 @@ const ENEMY_TYPES = {
 	},
 }
 
+
+# Sprite textures
+var tex_ground: Texture2D = null
+var tex_water: Texture2D = null
+var tex_mountain: Texture2D = null
+var tex_forest: Texture2D = null
+var tex_building: Texture2D = null
+var tex_mechs = {}
+var tex_enemies = {}
+
+func _load_textures() -> void:
+	tex_ground = _try_load("res://sprites/ground.png")
+	tex_water = _try_load("res://sprites/water.png")
+	tex_mountain = _try_load("res://sprites/mountain.png")
+	tex_forest = _try_load("res://sprites/forest.png")
+	tex_building = _try_load("res://sprites/building.png")
+	tex_mechs["artillery"] = _try_load("res://sprites/mech_artillery.png")
+	tex_mechs["combat"] = _try_load("res://sprites/mech_combat.png")
+	tex_mechs["cannon"] = _try_load("res://sprites/mech_cannon.png")
+	tex_enemies["hornet"] = _try_load("res://sprites/enemy_hornet.png")
+	tex_enemies["beetle"] = _try_load("res://sprites/enemy_beetle.png")
+	tex_enemies["scorpion"] = _try_load("res://sprites/enemy_scorpion.png")
+	tex_enemies["firefly"] = _try_load("res://sprites/enemy_firefly.png")
+
+func _try_load(path: String) -> Texture2D:
+	if ResourceLoader.exists(path):
+		return load(path)
+	return null
+
 func _ready() -> void:
-	pass
+	_load_textures()
 
 func _process(delta: float) -> void:
 	match phase:
@@ -798,6 +827,18 @@ func _draw_game() -> void:
 				draw_line(Vector2(px + 45, py + 2), Vector2(px + 45, py - 8), Color(0.5, 0.5, 0.55), 1)
 				draw_rect(Rect2(px + 43, py - 10, 4, 3), Color(0.8, 0.2, 0.1))
 
+			# Draw terrain texture overlay
+			var _ttex: Texture2D = null
+			match t:
+				"ground": _ttex = tex_ground
+				"mountain": _ttex = tex_mountain
+				"water": _ttex = tex_water
+				"forest": _ttex = tex_forest
+			if _ttex != null:
+				draw_texture(_ttex, Vector2(px, py))
+			# Building texture
+			if buildings[y][x] > 0 and tex_building != null:
+				draw_texture(tex_building, Vector2(px, py))
 			# Subtle grid lines
 			draw_rect(Rect2(px, py, CELL, CELL), Color(0.20, 0.24, 0.16, 0.4), false, 1)
 
