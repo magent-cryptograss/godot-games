@@ -323,9 +323,12 @@ func up_element(dt: float) -> void:
 		step = "instrument"
 
 
-## How many painted pixels count as a character rather than an accident. A
-## drawn figure is several hundred; clearing the canvas and pressing done is 0.
-const MIN_PIXELS := 24
+## How much filled-in body counts as a character rather than an accident.
+## Counting painted pixels is not enough: "design your own" starts you on an
+## outline of a figure to draw inside, which is hundreds of pixels and still
+## invisible to play as. A drawn face alone is over a hundred filled pixels, so
+## this only catches someone who drew nothing at all.
+const MIN_FILL := 40
 
 func do_finish() -> void:
 	var p := Game.new_game(
@@ -338,11 +341,11 @@ func do_finish() -> void:
 
 ## The drawn sprite, or a preset if there is effectively nothing drawn.
 func _usable_sprite() -> PackedByteArray:
-	var painted := 0
+	var filled := 0
 	for b in spr:
-		if b != 0:
-			painted += 1
-	if painted >= MIN_PIXELS:
+		if b != 0 and b != Sprites.OUTLINE:
+			filled += 1
+	if filled >= MIN_FILL:
 		return spr
 	return Sprites.build(Sprites.PRESETS[preset_idx % Sprites.PRESETS.size()].opts)
 

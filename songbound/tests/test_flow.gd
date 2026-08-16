@@ -43,6 +43,16 @@ func _check_blank_sprite() -> void:
 			painted += 1
 	_expect(painted > 100, "an empty canvas falls back to a preset (%d pixels drawn)" % painted)
 
+	# the one that actually happened: "design your own" hands you an outline to
+	# draw inside, and pressing done on it is hundreds of painted pixels of
+	# nothing at all
+	c.spr = Sprites.build({"outlineOnly": true})
+	var fill := 0
+	for b in c._usable_sprite():
+		if b != 0 and b != Sprites.OUTLINE:
+			fill += 1
+	_expect(fill > 100, "an undrawn outline falls back to a preset (%d filled)" % fill)
+
 	var drawn: PackedByteArray = Sprites.build(Sprites.PRESETS[0].opts)
 	c.spr = drawn
 	_expect(c._usable_sprite() == drawn, "a drawn sprite is used exactly as drawn")

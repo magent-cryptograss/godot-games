@@ -32,6 +32,10 @@ const PRESETS := [
 	{"name": "Snowfinch",   "opts": {"skin": 10, "skinD": 11, "hair": 5,  "shirt": 25, "shirtD": 24, "pants": 4,  "shoe": 3, "hairStyle": "fringe"}},
 ]
 
+## The palette index used for a figure's outline. Lifted out of build() because
+## "is there anything inside this outline" is a question worth asking elsewhere.
+const OUTLINE := 1
+
 const NPC_LOOKS := {
 	"oldman":   {"skin": 11, "skinD": 12, "hair": 5, "shirt": 4,  "shirtD": 3,  "pants": 3,  "shoe": 1, "hairLong": true},
 	"kid":      {"skin": 10, "skinD": 11, "hair": 8, "shirt": 17, "shirtD": 16, "pants": 23, "shoe": 1},
