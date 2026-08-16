@@ -171,12 +171,23 @@ static func _tile_image(ch: String, v: int) -> Image:
 				_fill(img, 8 - yy4, yy4, yy4 * 2, 1, Color("#e4e6ee") if yy4 < 4 else Color("#b9bcc6"))
 			_dith(img, 0, 14, 16, 2, Color("#4e483f"), Color("#3b362f"))
 		"r":
+			# each variant is a different boulder, or a field of them turns into
+			# wallpaper -- four identical rocks in a row is worse than none
 			_fill(img, 0, 0, 16, 16, Color("#3e7a42"))
-			_ellipse(img, 8, 13, 6, 2, Color("#2f6135"))
-			_ellipse(img, 8, 9, 6, 5, Color("#6b645a"))
-			_ellipse(img, 7, 8, 4, 3, Color("#8d8578"))
-			_fill(img, 5, 6, 2, 1, Color("#a8a094"))
-			_ellipse(img, 10, 11, 3, 2, Color("#544e46"))
+			var rx := 6 + int(r.call(1) * 4)
+			var ry := 8 + int(r.call(2) * 3)
+			var rw := 4 + int(r.call(3) * 3)
+			_ellipse(img, rx, ry + 4, rw, 2, Color("#2f6135"))
+			_ellipse(img, rx, ry, rw, rw - 1, Color("#6b645a"))
+			_ellipse(img, rx - 1, ry - 1, maxi(2, rw - 2), maxi(2, rw - 3), Color("#8d8578"))
+			_fill(img, rx - 2, ry - 3, 2, 1, Color("#a8a094"))
+			_ellipse(img, rx + 2, ry + 2, maxi(2, rw - 3), 2, Color("#544e46"))
+			if v % 2 == 0:
+				# a smaller companion stone
+				var sx2 := 2 + int(r.call(4) * 3)
+				var sy2 := 10 + int(r.call(5) * 3)
+				_ellipse(img, sx2, sy2, 2, 2, Color("#615a52"))
+				_fill(img, sx2 - 1, sy2 - 1, 1, 1, Color("#8d8578"))
 		"%":
 			_fill(img, 0, 0, 16, 16, Color("#3e7a42"))
 			_ellipse(img, 8, 14, 5, 2, Color("#2f6135"))
@@ -508,9 +519,9 @@ static func _edge_pass(m: GameMap, img: Image) -> void:
 				_shade(img, px + 1, py, 1, TS, 0.86)
 			if is_solid(m.get_tile(x + 1, y)):
 				_shade(img, px + TS - 1, py, 1, TS, 0.82)
-			# and a little light catches the near edge of a drop
-			if is_solid(m.get_tile(x, y + 1)):
-				_shade(img, px, py + TS - 1, TS, 1, 1.12)
+			# No rim light on the near side of a solid: it outlines every
+			# isolated rock and tree with a bright box, which reads as a UI
+			# selection rather than as terrain.
 
 
 ## Compose the whole map into one texture, once.

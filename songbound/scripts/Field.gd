@@ -267,6 +267,7 @@ func _draw() -> void:
 		draw_texture_rect_region(map.texture,
 			Rect2(0, 0, UI.SCREEN_W, UI.SCREEN_H),
 			Rect2(cam.x, cam.y, UI.SCREEN_W, UI.SCREEN_H))
+	_draw_water(cam)
 
 	for c in map.chests:
 		var sx: float = c.x * TS - cam.x
@@ -314,6 +315,46 @@ func _draw() -> void:
 	_draw_hud()
 	if msg != null:
 		_draw_msg()
+
+
+## Water is baked into the map texture along with its shoreline, so this draws
+## movement over the top rather than replacing the tile -- that keeps the rim
+## where water meets land.
+func _draw_water(cam: Vector2) -> void:
+	var x0 := int(cam.x / TS) - 1
+	var y0 := int(cam.y / TS) - 1
+	var x1 := x0 + int(UI.SCREEN_W / TS) + 3
+	var y1 := y0 + int(UI.SCREEN_H / TS) + 3
+	for ty in range(maxi(0, y0), mini(map.h, y1)):
+		for tx in range(maxi(0, x0), mini(map.w, x1)):
+			if map.get_tile(tx, ty) != "~":
+				continue
+			var sx := tx * TS - cam.x
+			var sy := ty * TS - cam.y
+
+			# two highlight bands drifting down the tile at different speeds,
+			# offset per tile so the surface does not pulse as one sheet
+			var off := Maps.hash2(tx, ty) * 16.0
+			for k in 2:
+				var speed := 5.0 + k * 3.0
+				var band := fmod(t * speed + off + k * 9.0, 16.0)
+				var col := Color(0.55, 0.78, 0.95, 0.16 if k == 0 else 0.10)
+				UI.rect(self, sx, sy + band, TS, 1, col)
+
+			# caustic glints, stepped so they twinkle rather than slide
+			var step := int(t * 3.0)
+			for i in 2:
+				var h1 := Maps.hash2(tx * 7 + i, ty * 13 + step)
+				if h1 < 0.55:
+					continue
+				var h2 := Maps.hash2(tx * 3 + step, ty * 5 + i)
+				UI.rect(self, sx + int(h1 * 13.0), sy + int(h2 * 13.0), 2, 1,
+					Color(0.85, 0.95, 1.0, 0.5))
+
+			# foam breathing along the shore where water meets land above
+			if map.get_tile(tx, ty - 1) != "~":
+				var pulse: float = 0.25 + 0.2 * sin(t * 2.2 + tx * 0.7)
+				UI.rect(self, sx, sy, TS, 1, Color(1, 1, 1, pulse))
 
 
 func _draw_chest(x: float, y: float, opened: bool) -> void:
