@@ -16,6 +16,8 @@ func _ready() -> void:
 	_check_voices()
 	_check_drums()
 	_check_echo()
+	_check_phase()
+	_report_shape()
 	_check_names()
 	_check_song_tunes()
 	_check_pitch()
@@ -153,6 +155,44 @@ func _check_song_tunes() -> void:
 					bad.append("%s has an unplayable note %s" % [song.name, ev[0]])
 	_expect(missing.is_empty(), "all 64 songs have a tune (%s)" % str(missing))
 	_expect(bad.is_empty(), "every tune is playable (%s)" % str(bad))
+
+
+## Tracks must be the same length, or an exact divisor of the longest, or they
+## walk out of phase with each other and never come back.
+func _check_phase() -> void:
+	var drifting: Array = []
+	var ragged: Array = []
+	for name in Audio.TUNES:
+		var tune: Dictionary = Audio.TUNES[name]
+		var longest := 0.0
+		var lens: Array = []
+		for tr in tune.tracks:
+			var b := Tunes.beats_of(tr.seq)
+			lens.append("%s=%g" % [tr.voice, b])
+			longest = maxf(longest, b)
+		for tr in tune.tracks:
+			var b := Tunes.beats_of(tr.seq)
+			if b <= 0.0 or fmod(longest, b) > 0.001:
+				drifting.append("%s: %s" % [name, ", ".join(PackedStringArray(lens))])
+				break
+		# and the whole thing has to be a whole number of bars
+		if fmod(longest, Tunes.BEATS_PER_BAR) > 0.001:
+			ragged.append("%s (%g beats)" % [name, longest])
+	_expect(drifting.is_empty(), "every tune's tracks stay in phase (%s)" % str(drifting))
+	_expect(ragged.is_empty(), "every tune is a whole number of bars (%s)" % str(ragged))
+
+
+## A tune that is a bar and a half of melody looping under eight bars of chords
+## is not a tune. Print the shape of each so a wrong one is visible.
+func _report_shape() -> void:
+	print("  tune             tempo  bars  tracks")
+	for name in Audio.TUNES:
+		var tune: Dictionary = Audio.TUNES[name]
+		var voices: Array = []
+		for tr in tune.tracks:
+			voices.append(str(tr.voice))
+		print("  %-16s %-6d %-5d %s" % [name, int(tune.tempo),
+			int(tune.get("bars", 0)), ", ".join(PackedStringArray(voices))])
 
 
 func _check_tunes() -> void:

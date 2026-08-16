@@ -144,6 +144,21 @@ func _render(voice: String, freq: float, dur: float, bright: float, echo: float 
 				lp2 += ((rng.randf() * 2.0 - 1.0) - lp2) * 0.22
 				s = (body * 0.8 + lp2 * 0.10) * _env(i, n, 0.14, 0.45)
 
+			"chop":
+				# root, fifth and octave, choked almost immediately. The noise at
+				# the front is the pick hitting the strings, and without it the
+				# chop is a chord rather than a percussion instrument.
+				var ch := 0.0
+				for k in 3:
+					var mul: float = [1.0, 1.4983, 2.0][k]
+					phase3 = fmod(phase3 + step * mul / 3.0, 1.0)
+					ch += (fmod(float(i) * step * mul, 1.0) * 2.0 - 1.0) / (k + 1.6)
+				var atk: float = 1.0 if i < 90 else 0.0
+				lp2 += ((rng.randf() * 2.0 - 1.0) * atk - lp2) * 0.5
+				var cfc := clampf(freq * 7.0, 300.0, MIX_RATE * 0.45)
+				lp += (ch * 0.8 + lp2 * 0.5 - lp) * (1.0 - exp(-TAU * cfc / MIX_RATE))
+				s = lp * _env(i, n, 0.002, 5.5)
+
 			"drum":
 				# One voice, three drums, chosen by the pitch it is asked for --
 				# so a single track can carry a whole kit.
@@ -252,7 +267,7 @@ var TUNES := {}
 ## turns to mud.
 const VOICE_ECHO := {
 	"lead": 0.95, "flute": 1.0, "strings": 0.9, "harp": 0.8, "bell": 0.9,
-	"bow": 0.8, "pluck": 0.7, "reed": 0.7, "bass": 0.3, "drum": 0.25,
+	"bow": 0.8, "pluck": 0.7, "reed": 0.7, "bass": 0.3, "drum": 0.25, "chop": 0.35,
 }
 
 
@@ -300,7 +315,10 @@ func _process(dt: float) -> void:
 			var dur := beats * spb
 			var f := note_freq(str(ev[0]))
 			if f > 0.0:
-				_play(tr.voice, f, minf(dur * 0.95, 2.0), tr.vol, tr.get("bright", 8.0),
+				var len := minf(dur * 0.95, 2.0)
+				if tr.voice == "chop":
+					len = minf(len, 0.16)
+				_play(tr.voice, f, len, tr.vol, tr.get("bright", 8.0),
 					VOICE_ECHO.get(str(tr.voice), 0.6))
 			c.next += dur
 			c.i += 1
