@@ -153,6 +153,20 @@ static func _ids_in(dir: String) -> Array:
 	return out
 
 
+## Delete every saved copy of a map, in both layers, so it falls back to the
+## version World.gd generates. Without this a map saved in a browser could never
+## be undone: it overrides the generated world on every load, and user:// lives
+## inside IndexedDB where the player cannot reach it.
+static func revert(id: String) -> bool:
+	var removed := false
+	for dir in [USER_DIR, RES_DIR]:
+		var path := path_in(dir, id)
+		if FileAccess.file_exists(path):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+			removed = true
+	return removed
+
+
 ## Lay the shipped maps down first, then the scratch layer on top.
 static func apply_overrides(maps: Dictionary) -> int:
 	ensure_dir(USER_DIR)

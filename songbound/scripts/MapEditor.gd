@@ -168,6 +168,14 @@ func _unhandled_input(event: InputEvent) -> void:
 				var layer := "project" if MapIO.can_write_res() else "scratch"
 				_say("saved to %s%s" % [layer, note])
 			print("[editor] saved %s -> %s%s" % [map.id, p, note])
+		KEY_X:
+			# undo a bad save: drop the file and go back to the generated map
+			var had := MapIO.revert(map.id)
+			World.maps.clear()
+			var regenerated: Maps.GameMap = World.build_all()[map.id]
+			map = regenerated
+			undo_stack.clear()
+			_say("reverted to the generated map" if had else "no saved copy to revert")
 		KEY_R:
 			var fresh := MapIO.load_map(map.id)
 			if fresh != null:
@@ -417,7 +425,7 @@ func _draw_bars() -> void:
 
 	UI.rect(self, 0, UI.SCREEN_H - 11, UI.SCREEN_W, 11, Color("#241c34"))
 	# 320px at 6px a glyph is 53 characters before it runs off the edge
-	var hint := "[ ]map -+zoom TAB mode F fill U undo S save C copy"
+	var hint := "[ ]map -+zoom TAB F fill U undo S save C copy X revert"
 	if mode == "objects":
 		hint = "1start 2npc 3chest 4warp 5boss ,.cycle DEL S save ESC"
 	PixelFont.draw(self, hint, Vector2(3, UI.SCREEN_H - 9), UI.COL_DIM)

@@ -132,6 +132,19 @@ func _logic() -> void:
 	World.maps.clear()
 	_expect(World.build_all()["house1"].start == Vector2i(5, 7), "the save is what loads")
 
+	# X in the editor must be able to undo a bad save, or a map saved in a
+	# browser can never be taken back
+	ed.map.start = Vector2i(9, 9)
+	MapIO.save(ed.map)
+	_expect(MapIO.has_saved("house1"), "a saved map exists to revert")
+	World.maps.clear()
+	_expect(World.build_all()["house1"].start == Vector2i(9, 9), "the bad save is live")
+	_expect(MapIO.revert("house1"), "revert removed the saved copy")
+	_expect(not MapIO.has_saved("house1"), "no saved copy remains in either layer")
+	World.maps.clear()
+	_expect(World.build_all()["house1"].start != Vector2i(9, 9),
+		"the generated map is back")
+
 	# clean up so the repo does not gain a test map
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(MapIO.path_in(MapIO.RES_DIR, "house1")))
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(MapIO.path_in(MapIO.USER_DIR, "house1")))
