@@ -40,6 +40,12 @@ const NPC_LOOKS := {
 	"preacher": {"skin": 10, "skinD": 11, "hair": 1, "shirt": 2,  "shirtD": 1,  "pants": 1,  "shoe": 1},
 	"miner":    {"skin": 12, "skinD": 7,  "hair": 2, "shirt": 22, "shirtD": 22, "pants": 3,  "shoe": 1, "hat": 16},
 	"drifter":  {"skin": 11, "skinD": 12, "hair": 7, "shirt": 9,  "shirtD": 8,  "pants": 7,  "shoe": 1, "hat": 8},
+	# Five towns wearing the same seven faces reads as one town copied five times.
+	"miller":   {"skin": 10, "skinD": 11, "hair": 5, "shirt": 6,  "shirtD": 5,  "pants": 4,  "shoe": 2, "vest": 4},
+	"ferry":    {"skin": 12, "skinD": 7,  "hair": 2, "shirt": 23, "shirtD": 22, "pants": 7,  "shoe": 1, "hat": 4},
+	"widow":    {"skin": 11, "skinD": 12, "hair": 4, "shirt": 2,  "shirtD": 1,  "pants": 1,  "shoe": 1, "hairLong": true},
+	"smith":    {"skin": 12, "skinD": 7,  "hair": 1, "shirt": 13, "shirtD": 13, "pants": 3,  "shoe": 1, "vest": 7},
+	"girl":     {"skin": 10, "skinD": 11, "hair": 16, "shirt": 30, "shirtD": 29, "pants": 26, "shoe": 1, "hairLong": true, "hairStyle": "fringe"},
 }
 
 

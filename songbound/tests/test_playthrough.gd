@@ -12,8 +12,11 @@ extends Node
 const BATTLE := preload("res://scenes/Battle.tscn")
 const MAX_TURNS := 80          # a real fight is 3-12; 80 means something hung
 # 12 samples swung the win rate by 30 points between runs, which reads as a
-# regression when it is only variance. 40 is steady enough to tune against.
-const PER_REGION := 40
+# regression when it is only variance. 40 was steadier and still swung crag by
+# 17 points, so the fights are seeded now (see _next_battle) and the count is up
+# again -- with a fixed seed a move in these numbers is a real move.
+const PER_REGION := 60
+const SOAK_SEED := 20260816
 
 var plan := [
 	{"region": "meadow", "lv": 3},
@@ -21,6 +24,13 @@ var plan := [
 	{"region": "crag", "lv": 20},
 	{"region": "cave", "lv": 30},
 	{"region": "deep", "lv": 42},
+	# the side dungeons, at the level a player who found them when they were
+	# signposted would plausibly be
+	{"region": "hollow", "lv": 6},
+	{"region": "chapel", "lv": 14},
+	{"region": "kennel", "lv": 24},
+	{"region": "spire", "lv": 44},
+	{"region": "thicket", "lv": 52},
 ]
 var plan_i := 0
 var fought := 0
@@ -89,6 +99,10 @@ func _next_battle() -> void:
 	watchdog = 0.0
 	battle = BATTLE.instantiate()
 	add_child(battle)
+	# every fight gets its own seed, derived from the region and the fight number,
+	# so the same fight is the same fight on every run
+	battle.rng.seed = SOAK_SEED + plan_i * 10007 + fought
+	Game.player.rng.seed = SOAK_SEED + plan_i * 7919 + fought
 	battle.finished.connect(_on_finished)
 	battle.begin(plan[plan_i].region, "", "")
 

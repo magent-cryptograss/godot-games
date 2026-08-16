@@ -20,6 +20,7 @@ static func build_all() -> Dictionary:
 	_town()
 	_interiors()
 	_caves()
+	Places.build_maps(maps)
 	for k in maps:
 		Maps.prerender(maps[k])
 	# Anything saved from the map editor wins over the generated version.
@@ -130,11 +131,31 @@ static func _world() -> void:
 	m.building(town.x - 2, town.y - 3, 5, 4, 2)
 	m.rect(cave.x - 2, cave.y - 1, 5, 2, "^")
 
+	# The five other towns and five other dungeons go down here, while the map is
+	# still all landmarks and no roads, and hand back the points the roads have
+	# to reach.
+	var anchors := Places.stamp(m)
+
 	var prev := Vector2i(town.x, town.y + 1)
 	for wp in waypoints:
 		m.road(prev.x, prev.y, wp.x, wp.y)
 		prev = wp
 	m.road(prev.x, prev.y, cave.x, cave.y + 1)
+
+	# A spur from the nearest point on the main road to every site. Roads cut
+	# through anything, so this is also what guarantees each place is reachable
+	# -- the audit checks it rather than trusting it.
+	for a in anchors:
+		var ap: Vector2i = a.p
+		var best: Vector2i = waypoints[0]
+		var best_d := 1 << 30
+		for wp in waypoints:
+			var wpv: Vector2i = wp
+			var dd: int = absi(wpv.x - ap.x) + absi(wpv.y - ap.y)
+			if dd < best_d:
+				best_d = dd
+				best = wpv
+		m.road(best.x, best.y, ap.x, ap.y)
 
 	m.set_tile(town.x, town.y, "o")
 	m.warps.append({"x": town.x, "y": town.y, "to": "town", "tx": 15, "ty": 24})
@@ -165,6 +186,14 @@ static func _world() -> void:
 		var cx := cr.randi_range(6, w - 7)
 		var cy := cr.randi_range(6, h - 7)
 		if Maps.is_solid(m.get_tile(cx, cy)):
+			continue
+		var too_close := false
+		for k in Places.sites:
+			var g: Vector2i = Places.sites[k].gate
+			if absi(g.x - cx) + absi(g.y - cy) < 14:
+				too_close = true
+				break
+		if too_close:
 			continue
 		m.rect(cx - 1, cy - 1, 3, 3, "f")
 		m.chests.append({"x": cx, "y": cy,
@@ -213,7 +242,7 @@ static func _town() -> void:
 	maps["town"] = m
 
 
-static func _room(id: String, w: int, h: int, back: String, bx: int, by: int, door_x: int = -1) -> Maps.GameMap:
+static func room(id: String, w: int, h: int, back: String, bx: int, by: int, door_x: int = -1) -> Maps.GameMap:
 	var m := Maps.GameMap.new(id, w, h, "_")
 	m.indoor = true
 	m.music = "town"
@@ -229,13 +258,13 @@ static func _room(id: String, w: int, h: int, back: String, bx: int, by: int, do
 
 
 static func _interiors() -> void:
-	var inn := _room("inn", 13, 10, "town", 8, 10)
+	var inn := World.room("inn", 13, 10, "town", 8, 10)
 	inn.rect(2, 3, 2, 2, "b"); inn.rect(5, 3, 2, 2, "b"); inn.rect(8, 3, 2, 2, "b")
 	inn.set_tile(10, 6, "c"); inn.set_tile(11, 6, "c")
 	inn.npcs.append({"x": 10, "y": 5, "look": "shopkeep", "dir": "down", "inn": 30, "lines": Story.INNKEEP})
 	maps["inn"] = inn
 
-	var shop := _room("shop", 13, 10, "town", 22, 10)
+	var shop := World.room("shop", 13, 10, "town", 22, 10)
 	shop.rect(3, 5, 7, 1, "c")
 	shop.rect(2, 3, 1, 2, "p"); shop.rect(10, 3, 1, 2, "p")
 	shop.npcs.append({"x": 6, "y": 4, "look": "shopkeep", "dir": "down",
@@ -243,45 +272,23 @@ static func _interiors() -> void:
 		"lines": Story.SHOPKEEP})
 	maps["shop"] = shop
 
-	var h1 := _room("house1", 11, 10, "town", 7, 21)
+	var h1 := World.room("house1", 11, 10, "town", 7, 21)
 	h1.rect(2, 3, 2, 2, "b"); h1.set_tile(6, 4, "t"); h1.set_tile(8, 6, "p")
 	h1.npcs.append({"x": 6, "y": 5, "look": "preacher", "dir": "down", "lines": Story.PREACHER})
 	h1.chests.append({"x": 2, "y": 6, "item": "tonic", "id": "h1a"})
 	maps["house1"] = h1
 
-	var h2 := _room("house2", 11, 10, "town", 23, 21)
+	var h2 := World.room("house2", 11, 10, "town", 23, 21)
 	h2.set_tile(3, 4, "t"); h2.set_tile(7, 4, "t"); h2.rect(2, 6, 1, 2, "p")
 	h2.npcs.append({"x": 5, "y": 5, "look": "miner", "dir": "down", "lines": Story.MINER})
 	h2.chests.append({"x": 8, "y": 6, "item": "charm", "id": "h2a"})
 	maps["house2"] = h2
 
 
-static func _carve(m: Maps.GameMap, x: int, y: int, r: int) -> void:
-	for dy in range(-r, r + 1):
-		for dx in range(-r, r + 1):
-			if dx * dx + dy * dy <= r * r + 1:
-				m.set_tile(x + dx, y + dy, "D")
-
-
-static func _tunnel(m: Maps.GameMap, pts: Array, r: int) -> void:
-	for i in range(1, pts.size()):
-		var a: Vector2i = pts[i - 1]
-		var b: Vector2i = pts[i]
-		var x := a.x
-		var y := a.y
-		while x != b.x:
-			_carve(m, x, y, r)
-			x += 1 if x < b.x else -1
-		while y != b.y:
-			_carve(m, x, y, r)
-			y += 1 if y < b.y else -1
-		_carve(m, b.x, b.y, r + 1)
-
-
 static func _caves() -> void:
 	var c1 := Maps.GameMap.new("cave1", 40, 30, "X")
 	c1.music = "cave"; c1.region = "cave"; c1.indoor = true
-	_tunnel(c1, [Vector2i(8, 24), Vector2i(8, 18), Vector2i(14, 16), Vector2i(14, 9),
+	Maps.tunnel(c1, [Vector2i(8, 24), Vector2i(8, 18), Vector2i(14, 16), Vector2i(14, 9),
 		Vector2i(22, 8), Vector2i(28, 12), Vector2i(30, 20), Vector2i(22, 22),
 		Vector2i(16, 24), Vector2i(33, 7)], 2)
 	c1.set_tile(8, 25, "C")
@@ -295,10 +302,10 @@ static func _caves() -> void:
 
 	var c2 := Maps.GameMap.new("cave2", 34, 26, "X")
 	c2.music = "cave"; c2.region = "deep"; c2.indoor = true
-	_tunnel(c2, [Vector2i(6, 22), Vector2i(6, 16), Vector2i(12, 13), Vector2i(20, 15),
+	Maps.tunnel(c2, [Vector2i(6, 22), Vector2i(6, 16), Vector2i(12, 13), Vector2i(20, 15),
 		Vector2i(24, 9), Vector2i(17, 6)], 2)
-	_carve(c2, 17, 6, 5)
-	_carve(c2, 17, 3, 2)
+	Maps.carve(c2, 17, 6, 5)
+	Maps.carve(c2, 17, 3, 2)
 	c2.set_tile(6, 23, "*")
 	c2.warps.append({"x": 6, "y": 23, "to": "cave1", "tx": 33, "ty": 8})
 	c2.chests.append({"x": 24, "y": 9, "item": "strings", "id": "c2a"})
@@ -311,10 +318,10 @@ static func _caves() -> void:
 
 	var c3 := Maps.GameMap.new("cave3", 32, 24, "X")
 	c3.music = "cave"; c3.region = "deep"; c3.indoor = true
-	_tunnel(c3, [Vector2i(5, 20), Vector2i(5, 14), Vector2i(11, 11), Vector2i(19, 13),
+	Maps.tunnel(c3, [Vector2i(5, 20), Vector2i(5, 14), Vector2i(11, 11), Vector2i(19, 13),
 		Vector2i(25, 8), Vector2i(16, 5)], 2)
-	_carve(c3, 16, 5, 5)
-	_carve(c3, 16, 2, 2)
+	Maps.carve(c3, 16, 5, 5)
+	Maps.carve(c3, 16, 2, 2)
 	c3.set_tile(5, 21, "*")
 	c3.warps.append({"x": 5, "y": 21, "to": "cave2", "tx": 17, "ty": 3})
 	c3.chests.append({"x": 25, "y": 8, "item": "tonic2", "id": "c3a"})
@@ -329,8 +336,8 @@ static func _caves() -> void:
 	var f := Maps.GameMap.new("final", 21, 20, "X")
 	f.music = "cave"; f.region = "deep"; f.indoor = true
 	for p in [Vector2i(10, 17), Vector2i(10, 15), Vector2i(10, 13)]:
-		_carve(f, p.x, p.y, 2)
-	_carve(f, 10, 9, 6)
+		Maps.carve(f, p.x, p.y, 2)
+	Maps.carve(f, 10, 9, 6)
 	for y in range(3, 19):
 		for x in range(2, 19):
 			if f.get_tile(x, y) == "D":

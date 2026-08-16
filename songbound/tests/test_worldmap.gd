@@ -23,6 +23,10 @@ func _ready() -> void:
 	# mark what matters, big enough to find by eye
 	_blob(img, World.town_gate, 5, Color("#ffe08a"))
 	_blob(img, World.cave_mouth, 5, Color("#e05050"))
+	for id in Places.sites:
+		var site: Dictionary = Places.sites[id]
+		_blob(img, site.gate, 5,
+			Color("#ffe08a") if site.kind == "town" else Color("#e05050"))
 	for c in m.chests:
 		_blob(img, Vector2i(c.x, c.y), 2, Color("#ffffff"))
 	for n in m.npcs:
@@ -34,6 +38,9 @@ func _ready() -> void:
 	print("WORLDMAP: %dx%d tiles -> %s" % [m.w, m.h, ProjectSettings.globalize_path(path)])
 	print("  town gate %s   cave mouth %s   chests %d   signs %d" % [
 		World.town_gate, World.cave_mouth, m.chests.size(), m.npcs.size()])
+	for id in Places.sites:
+		var site: Dictionary = Places.sites[id]
+		print("    %-9s %-20s %s" % [site.kind, site.name, site.gate])
 	get_tree().quit()
 
 

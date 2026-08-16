@@ -183,6 +183,15 @@ const ITEMS := {
 	"salve":   {"name": "Bitter Salve", "kind": "cure",    "pow": 0,   "price": 40,  "desc": "Clears bad conditions."},
 	"bread":   {"name": "Road Bread",   "kind": "healall", "pow": 80,  "price": 150, "desc": "Restores 80 HP."},
 	"charm":   {"name": "Quiet Charm",  "kind": "escape",  "pow": 0,   "price": 60,  "desc": "Escape any fight but a boss."},
+
+	# Relics are not sold and do not stack up in the way consumables do: one use,
+	# permanent, gone. They are what a side dungeon is worth going into for --
+	# a chest of tonics is not a reason to fight a boss.
+	"r_bell":   {"name": "Cracked Bell",  "kind": "relic", "stat": "def", "pow": 6,  "price": 0, "desc": "DEF +6, for good."},
+	"r_baton":  {"name": "Broken Baton",  "kind": "relic", "stat": "mus", "pow": 8,  "price": 0, "desc": "MUSIC +8, for good."},
+	"r_collar": {"name": "Brass Whistle", "kind": "relic", "stat": "atk", "pow": 8,  "price": 0, "desc": "ATK +8, for good."},
+	"r_rod":    {"name": "Harp Wire",     "kind": "relic", "stat": "spd", "pow": 8,  "price": 0, "desc": "SPD +8, for good."},
+	"r_seed":   {"name": "Heartwood Seed","kind": "relic", "stat": "hp",  "pow": 90, "price": 0, "desc": "HP +90, for good."},
 }
 
 func item_name(id: String) -> String:
@@ -221,6 +230,21 @@ const BESTIARY := {
 	"conductor": {"name": "The Discordant", "art": "conductor", "elem": "dark", "hp": 1100, "atk": 46, "def": 60, "spd": 15, "xp": 700, "gold": 900, "boss": true,
 		"skills": [{"name": "Downbeat", "pow": 1.4}, {"name": "Dissonance", "pow": 1.2, "all": true},
 			{"name": "Silence Them", "pow": 0.8, "all": true, "status": "weak", "chance": 0.7}, {"name": "Grand Pause", "pow": 2.0}]},
+	"hollowbell": {"name": "The Hollow Bell", "art": "gravebell", "elem": "earth", "hp": 340, "atk": 22, "def": 28, "spd": 9, "xp": 180, "gold": 220, "boss": true,
+		"skills": [{"name": "Toll", "pow": 1.2}, {"name": "Dull Ring", "pow": 1.0, "all": true}]},
+	"choirmaster": {"name": "The Choirmaster", "art": "conductor", "elem": "dark", "hp": 620, "atk": 32, "def": 42, "spd": 13, "xp": 380, "gold": 500, "boss": true,
+		"skills": [{"name": "Upbeat", "pow": 1.3}, {"name": "Cut Time", "pow": 1.0, "all": true},
+			{"name": "Hold", "pow": 0.7, "all": true, "status": "slow", "chance": 0.6}]},
+	"kennelking": {"name": "The Kennel King", "art": "gravehound", "elem": "dark", "hp": 780, "atk": 38, "def": 46, "spd": 20, "xp": 520, "gold": 640, "boss": true,
+		"skills": [{"name": "Savage", "pow": 1.4}, {"name": "The Pack", "pow": 1.0, "hits": 3},
+			{"name": "Bay", "pow": 0.6, "all": true, "status": "weak", "chance": 0.6}]},
+	"stormfather": {"name": "The Stormfather", "art": "thunderram", "elem": "electric", "hp": 1100, "atk": 44, "def": 54, "spd": 16, "xp": 760, "gold": 900, "boss": true,
+		"skills": [{"name": "Headlong", "pow": 1.5}, {"name": "Thunderhead", "pow": 1.2, "all": true, "status": "stun", "chance": 0.25},
+			{"name": "Ground Strike", "pow": 2.0}]},
+	"mothertree": {"name": "The Mother Tree", "art": "bogwitch", "elem": "plant", "hp": 1500, "atk": 50, "def": 60, "spd": 11, "xp": 1100, "gold": 1200, "boss": true,
+		"skills": [{"name": "Bramble", "pow": 1.4}, {"name": "Rootbind", "pow": 1.0, "all": true, "status": "stun", "chance": 0.3},
+			{"name": "Rot", "pow": 1.2, "all": true, "status": "poison", "chance": 0.8},
+			{"name": "Second Growth", "pow": 0.0, "heal": 0.15}]},
 	"quiet":     {"name": "The Quiet", "art": "quiet", "elem": "dark", "hp": 2400, "atk": 62, "def": 72, "spd": 18, "xp": 2000, "gold": 2000, "boss": true,
 		"skills": [{"name": "Unsong", "pow": 1.5}, {"name": "The Long Hush", "pow": 1.3, "all": true, "status": "weak", "chance": 0.5},
 			{"name": "Forgetting", "pow": 1.2, "all": true, "drain": 0.4}, {"name": "Nothing At All", "pow": 2.4}]},
@@ -235,6 +259,15 @@ const REGIONS := {
 	# who never stops to heal.
 	"cave":   {"tier": 3.4, "music": "cave",  "bg": "cave",   "rate": 0.062, "mobs": ["sentinel", "gravehound", "discord", "gloomcap", "thunderram"]},
 	"deep":   {"tier": 4.2, "music": "cave",  "bg": "deep",   "rate": 0.066, "mobs": ["discord", "thunderram", "gravehound", "bogwitch", "sentinel"]},
+
+	# The five side dungeons, laid out along the same curve as the main road so
+	# that the one nearest a town is the one a player leaving that town can take.
+	# The last two sit past the end of the story on purpose.
+	"hollow":  {"tier": 1.5, "music": "cave", "bg": "cave", "rate": 0.060, "mobs": ["mire", "thistle", "gloomcap", "sentinel"]},
+	"chapel":  {"tier": 2.5, "music": "cave", "bg": "deep", "rate": 0.062, "mobs": ["gloomcap", "discord", "mire", "galecrow"]},
+	"kennel":  {"tier": 3.3, "music": "cave", "bg": "cave", "rate": 0.064, "mobs": ["gravehound", "discord", "sentinel", "galecrow"]},
+	"spire":   {"tier": 5.0, "music": "cave", "bg": "crag", "rate": 0.062, "mobs": ["thunderram", "discord", "rime", "sentinel", "galecrow"]},
+	"thicket": {"tier": 6.4, "music": "field", "bg": "wood", "rate": 0.064, "mobs": ["bogwitch", "gravehound", "discord", "thunderram", "sentinel"]},
 }
 
 # --------------------------------------------------------- the damage model --

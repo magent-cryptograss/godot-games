@@ -19,7 +19,8 @@ func _ready() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 4242
 
-	for region in ["meadow", "wood", "crag", "cave", "deep"]:
+	for region in ["meadow", "wood", "crag", "cave", "deep",
+			"hollow", "chapel", "kennel", "spire", "thicket"]:
 		var terrains := [".", ","] if region in ["meadow", "wood", "crag"] else ["D"]
 		for tile in terrains:
 			var wgt := Maps.enc_weight(tile)

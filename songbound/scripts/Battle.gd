@@ -361,6 +361,12 @@ func do_item(id: String) -> void:
 			pop(68, 122, "+%d" % it.pow, UI.COL_BLUE)
 			Audio.sfx("heal")
 			set_msg("Breath returns.")
+		"relic":
+			p.grow[it.stat] += it.pow
+			if it.stat == "hp":
+				p.hp = mini(p.max_hp(), p.hp + it.pow)
+			Audio.sfx("buff")
+			set_msg("%s is yours for good." % it.name)
 		"cure":
 			p_status = _keep_good(p_status)
 			Audio.sfx("buff")

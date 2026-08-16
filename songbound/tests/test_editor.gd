@@ -31,7 +31,11 @@ func _logic() -> void:
 	print("")
 	print("== map editor ==")
 	_expect(ed.map != null, "editor opened a map (%s)" % (ed.map.id if ed.map else "-"))
-	_expect(ed.map_ids.size() == 10, "all %d maps listed" % ed.map_ids.size())
+	var expect := 10 + Places.towns().size() * 4
+	for d in Places.dungeons():
+		expect += int(d.floors)
+	_expect(ed.map_ids.size() == expect,
+		"all %d maps listed (editor has %d)" % [expect, ed.map_ids.size()])
 
 	# switch to a small interior so the test is quick and deterministic
 	var target: int = ed.map_ids.find("house1")

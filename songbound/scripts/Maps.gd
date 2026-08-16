@@ -80,6 +80,19 @@ static func _tile_image(ch: String, v: int) -> Image:
 				for pos in [Vector2i(4, 6), Vector2i(10, 9), Vector2i(7, 12)]:
 					_fill(img, pos.x, pos.y, 2, 2, fc.darkened(0.35))
 					_fill(img, pos.x, pos.y, 1, 1, fc)
+		"\"":
+			# dry grass: the same grass with the green gone out of it, and enough
+			# bare earth showing through to read as a different country
+			var dbase := Color("#7f8a4e")
+			_fill(img, 0, 0, 16, 16, dbase)
+			for i in 12:
+				var dx7 := int(r.call(i) * 15)
+				var dy7 := int(r.call(i + 5) * 15)
+				_fill(img, dx7, dy7, 2, 1, Color("#6d7742"))
+				if i % 3 == 0:
+					_fill(img, dx7, dy7 - 1, 1, 2, Color("#98a05e"))
+				if i % 4 == 0:
+					_fill(img, dx7, dy7, 2, 2, Color("#8a7a52"))
 		",":
 			var gbase := Color("#336a39")
 			_fill(img, 0, 0, 16, 16, gbase)
@@ -469,6 +482,32 @@ class GameMap extends RefCounted:
 		# bands by fraction of the map, so they hold at any world size
 		var f := float(y) / float(maxi(1, h))
 		return "meadow" if f > 0.62 else ("wood" if f > 0.34 else "crag")
+
+
+## Dig a round chamber out of solid rock.
+static func carve(m: GameMap, x: int, y: int, r: int) -> void:
+	for dy in range(-r, r + 1):
+		for dx in range(-r, r + 1):
+			if dx * dx + dy * dy <= r * r + 1:
+				m.set_tile(x + dx, y + dy, "D")
+
+
+## Dig chambers at every point and corridors between them, in order. Caves are
+## generated this way rather than from noise because a chain is connected by
+## construction -- there is no chance of a floor whose stairs are walled off.
+static func tunnel(m: GameMap, pts: Array, r: int) -> void:
+	for i in range(1, pts.size()):
+		var a: Vector2i = pts[i - 1]
+		var b: Vector2i = pts[i]
+		var x := a.x
+		var y := a.y
+		while x != b.x:
+			carve(m, x, y, r)
+			x += 1 if x < b.x else -1
+		while y != b.y:
+			carve(m, x, y, r)
+			y += 1 if y < b.y else -1
+		carve(m, b.x, b.y, r + 1)
 
 
 ## Multiply a run of pixels, for contact shadows and rim light.

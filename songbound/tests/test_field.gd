@@ -10,6 +10,10 @@ const TOUR := [
 	["world", Vector2i(20, 55)],
 	["world", Vector2i(34, 30)],
 	["shop", Vector2i(6, 8)],
+	["millbrook", Vector2i(14, 23)],
+	["ashfall", Vector2i(14, 23)],
+	["barrow1", Vector2i(6, 28)],
+	["thicket3", Vector2i(6, 20)],
 	["cave1", Vector2i(8, 24)],
 	["cave2", Vector2i(6, 22)],
 	["cave3", Vector2i(5, 20)],
@@ -45,7 +49,12 @@ func _audit() -> void:
 	print("")
 	print("== world audit ==")
 	var maps := World.build_all()
-	_expect(maps.size() == 10, "10 maps built (got %d)" % maps.size())
+	# derived rather than a magic number, so adding a town does not mean editing
+	# the test -- but still exact, so a map that fails to build is still caught
+	var expect := 10 + Places.towns().size() * 4
+	for d in Places.dungeons():
+		expect += int(d.floors)
+	_expect(maps.size() == expect, "%d maps built (got %d)" % [expect, maps.size()])
 
 	# every warp must land on a tile that exists and is not solid
 	var bad_warps := 0
@@ -118,6 +127,40 @@ func _audit() -> void:
 		var r := _flood(m, pair[1])
 		_expect(r.has(pair[2]), "%s: entrance connects to the way on" % pair[0])
 
+	# The generated dungeons get the same treatment, and need it more: nobody
+	# has ever looked at these floors. Walk from where the player lands to the
+	# stairs down, or on the last floor to the boss and the prize behind it.
+	var walled := 0
+	for d in Places.dungeons():
+		for i in int(d.floors):
+			var id := "%s%d" % [d.id, i + 1]
+			var m: Maps.GameMap = maps[id]
+			var r := _flood(m, m.start)
+			var targets: Array[Vector2i] = []
+			for wp in m.warps:
+				if str(wp.to).begins_with(d.id):
+					targets.append(Vector2i(wp.x, wp.y))
+			if m.boss != null:
+				targets.append(Vector2i(m.boss.x, m.boss.y))
+			for c in m.chests:
+				targets.append(Vector2i(c.x, c.y))
+			for t in targets:
+				if not r.has(t):
+					print("    %s: %s is walled off from the entrance" % [id, t])
+					walled += 1
+	_expect(walled == 0, "every generated dungeon floor is walkable end to end")
+
+	# and every town must let you back out of the gate you came in by
+	var stuck := 0
+	for t in Places.towns():
+		var m: Maps.GameMap = maps[t.id]
+		var r := _flood(m, m.start)
+		for wp in m.warps:
+			if not r.has(Vector2i(wp.x, wp.y)):
+				print("    %s: door at %d,%d cannot be reached" % [t.id, wp.x, wp.y])
+				stuck += 1
+	_expect(stuck == 0, "every town door can be walked to from the gate")
+
 
 ## Flood fill over a flat byte buffer. The old version kept a Dictionary keyed
 ## by Vector2i, which allocated an object per visited tile -- fine at 5,000
@@ -171,7 +214,14 @@ func _process(_d: float) -> void:
 	if frames < 4:
 		return
 	frames = 0
-	var img := get_viewport().get_texture().get_image()
+	var vt := get_viewport().get_texture()
+	var img: Image = vt.get_image() if vt != null else null
+	if img == null:
+		print("  (no rendered image -- run under xvfb with --rendering-driver opengl3)")
+		print("")
+		print("FAILURES: %d" % failures if failures > 0 else "WORLD AUDIT PASSED (no screenshots)")
+		get_tree().quit(1 if failures > 0 else 0)
+		return
 	var name := "%02d-%s-%d" % [idx, TOUR[idx][0], idx]
 	img.save_png(OUT_DIR + name + ".png")
 	var lit := 0

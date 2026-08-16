@@ -86,6 +86,19 @@ func _use(id: String) -> void:
 		p.hp = mini(p.max_hp(), p.hp + it.pow)
 	elif it.kind == "breath":
 		p.br = mini(p.max_br(), p.br + it.pow)
+	elif it.kind == "relic":
+		# permanent, and gone: it goes into grow, which is exactly where levelling
+		# puts its gains, so it is saved and loaded with everything else
+		p.grow[it.stat] += it.pow
+		if it.stat == "hp":
+			p.hp = mini(p.max_hp(), p.hp + it.pow)
+		p.items[id] -= 1
+		if p.items[id] <= 0:
+			p.items.erase(id)
+		sub = 0
+		note = "%s. For good." % it.desc
+		Audio.sfx("levelup")
+		return
 	else:
 		Audio.sfx("error")
 		note = "Save that for a fight."

@@ -16,9 +16,34 @@ func _ready() -> void:
 	Game.new_game("Wren", "fiddle", Sprites.build(Sprites.PRESETS[3].opts), "water")
 	field = preload("res://scenes/Field.tscn").instantiate()
 	add_child(field)
-	# stand on the bridge where the road crosses the river
-	field.enter("world", Vector2i(34, 36))
+	field.enter("world", _find_water())
 	field.msg = null
+
+
+## Somewhere with a good deal of river in shot. Hunting for it rather than
+## naming a tile means the test survives the next time the world is resized --
+## the hardcoded coordinate this replaced ended up in dry mountain, and the test
+## dutifully reported that the rock was not moving.
+func _find_water() -> Vector2i:
+	var m: Maps.GameMap = World.build_all()["world"]
+	var best := Vector2i(m.w / 2, m.h / 2)
+	var best_n := -1
+	for y in range(6, m.h - 6, 7):
+		for x in range(6, m.w - 6, 7):
+			if Maps.is_solid(m.get_tile(x, y)):
+				continue
+			var n := 0
+			for dy in range(-4, 5):
+				for dx in range(-6, 7):
+					if m.get_tile(x + dx, y + dy) == "~":
+						n += 1
+			if n > best_n:
+				best_n = n
+				best = Vector2i(x, y)
+				if n > 60:
+					return best
+	print("WATER: standing at %s with %d water tiles in view" % [best, best_n])
+	return best
 
 
 func _process(_d: float) -> void:
