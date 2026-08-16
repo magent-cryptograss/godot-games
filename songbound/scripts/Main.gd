@@ -358,7 +358,10 @@ func _draw_title() -> void:
 			UI.cursor(self, 112, y - 1, t)
 		PixelFont.draw_centered(self, opts[i], 168, y,
 			UI.COL_GOLD if sel else UI.COL_DIM, {"outline": UI.COL_INK} if sel else {})
-	PixelFont.draw_centered(self, "arrows / Z    (mouse works too)", 160, 218, Color("#5a5470"))
+	PixelFont.draw_centered(self, "arrows / Z    (mouse works too)", 160, 214, Color("#5a5470"))
+	# There is an older single-file HTML build of this game on the same server
+	# with a near-identical title screen and no map editor. Say which this is.
+	PixelFont.draw_centered(self, "godot build  -  /games/songbound-godot/", 160, 228, Color("#3a3450"))
 
 
 func _draw_big_title(word: String, cx: float, cy: float) -> void:

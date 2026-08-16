@@ -15,6 +15,7 @@ const VIEW_H := 216
 const PAL_X := 253
 const PAL_Y := 22
 const PAL_CELL := 17
+const EXIT_X := 284
 
 signal closed
 
@@ -108,6 +109,11 @@ func _tiles_down() -> int:
 	return int(VIEW_H / zoom)
 
 
+func mouse_in(x: float, y: float, w: float, h: float) -> bool:
+	var m := get_local_mouse_position()
+	return m.x >= x and m.y >= y and m.x < x + w and m.y < y + h
+
+
 func cursor_tile() -> Vector2i:
 	var m := get_local_mouse_position()
 	if m.x < VIEW_X or m.x >= VIEW_X + VIEW_W or m.y < VIEW_Y or m.y >= VIEW_Y + VIEW_H:
@@ -151,7 +157,10 @@ func _unhandled_input(event: InputEvent) -> void:
 				push_undo()
 				_flood(c, brush)
 				_say("filled")
-		KEY_ESCAPE:
+		KEY_ESCAPE, KEY_Q:
+			# ESC alone is not enough: browsers grab it for fullscreen and
+			# pointer-lock, so in a web build it never reaches the game. Q works
+			# everywhere, and there is a clickable EXIT button as well.
 			closed.emit()
 		KEY_C:
 			# In a browser, res:// is read-only and user:// is buried in
@@ -307,6 +316,12 @@ func _process(dt: float) -> void:
 				_say("brush: " + TILE_NAMES.get(brush, brush))
 				break
 
+	# EXIT button in the top bar
+	if left and not _was_left and mouse_in(EXIT_X, 1, 34, 9):
+		closed.emit()
+		_was_left = true
+		return
+
 	var c := cursor_tile()
 	if c.x >= 0 and c.x < map.w and c.y >= 0 and c.y < map.h:
 		if mode == "tiles":
@@ -421,11 +436,14 @@ func _draw_bars() -> void:
 	if c.x >= 0:
 		PixelFont.draw(self, "%d,%d" % [c.x, c.y], Vector2(120, 2), UI.COL_DIM)
 	PixelFont.draw_right(self, mode + (":" + obj_kind if mode == "objects" else ""),
-		UI.SCREEN_W - 3, 2, UI.COL_GOLD)
+		EXIT_X - 6, 2, UI.COL_GOLD)
+	var hot := mouse_in(EXIT_X, 1, 34, 9)
+	UI.rect(self, EXIT_X, 1, 34, 9, Color("#5a3a48") if hot else Color("#3a2a38"))
+	PixelFont.draw(self, "EXIT", Vector2(EXIT_X + 6, 2), Color("#fff4c0") if hot else UI.COL_GOLD)
 
 	UI.rect(self, 0, UI.SCREEN_H - 11, UI.SCREEN_W, 11, Color("#241c34"))
 	# 320px at 6px a glyph is 53 characters before it runs off the edge
-	var hint := "[ ]map -+zoom TAB F fill U undo S save C copy X revert"
+	var hint := "[ ]map -+zoom TAB F fill U undo S save C copy X revert Q quit"
 	if mode == "objects":
 		hint = "1start 2npc 3chest 4warp 5boss ,.cycle DEL S save ESC"
 	PixelFont.draw(self, hint, Vector2(3, UI.SCREEN_H - 9), UI.COL_DIM)
