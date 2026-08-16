@@ -68,7 +68,26 @@ func enter(map_id: String, at: Vector2i = Vector2i(-1, -1), dir: String = "down"
 		if Game.player != null:
 			Game.player.flags["seen_world"] = true
 
+	update_music()
 	queue_redraw()
+
+
+## The tune for where the player is standing.
+##
+## On the overworld this is the region under their feet rather than the map's
+## own setting: the overworld is one map with three bands of country in it, and
+## the tune should change as you climb out of the meadows into the crags.
+## Audio.play_music ignores a request for whatever is already playing, so this is
+## safe to call on every step.
+func update_music() -> void:
+	if map == null:
+		return
+	var want: String = map.music
+	if map.id == "world":
+		var rid := map.region_at(pos.x, pos.y)
+		if Data.REGIONS.has(rid):
+			want = str(Data.REGIONS[rid].get("music", want))
+	Audio.play_music(want)
 
 
 func say(lines: Array, on_done = null, npc = null) -> void:
@@ -147,6 +166,7 @@ func _process(dt: float) -> void:
 			Game.tile_pos = pos
 			if map.id == "world":
 				Game.world_pos = pos
+				update_music()
 			var wp = map.warp_at(pos.x, pos.y)
 			if wp != null:
 				_try_warp(wp)

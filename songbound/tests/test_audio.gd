@@ -17,6 +17,7 @@ func _ready() -> void:
 	_check_drums()
 	_check_echo()
 	_check_phase()
+	_check_music_follows()
 	_report_shape()
 	_check_names()
 	_check_song_tunes()
@@ -193,6 +194,72 @@ func _report_shape() -> void:
 			voices.append(str(tr.voice))
 		print("  %-16s %-6d %-5d %s" % [name, int(tune.tempo),
 			int(tune.get("bars", 0)), ", ".join(PackedStringArray(voices))])
+
+
+## Walk between places and check the tune changes with them.
+##
+## The bug this exists for: Field.enter() moved the player and left the music
+## alone, so whatever was playing when you last fought something followed you
+## into town, down the cave and back out. Every place had its own tune and
+## hardly any of them were ever heard.
+func _check_music_follows() -> void:
+	# the field draws the player, so there has to be one
+	if Game.player == null:
+		Game.new_game("Tester", "fiddle", Sprites.build(Sprites.PRESETS[0].opts), "fire")
+	var maps := World.build_all()
+	var field: Node2D = preload("res://scenes/Field.tscn").instantiate()
+	add_child(field)
+	field.set_process(false)
+
+	var seen := {}
+	var stops := [
+		["town", "the home village"],
+		["world", "the overworld"],
+		["cave1", "the cave"],
+		["millbrook", "another village"],
+		["barrow1", "a side dungeon"],
+	]
+	for stop in stops:
+		var id: String = stop[0]
+		var m: Maps.GameMap = maps[id]
+		field.enter(id, m.start)
+		var playing := Audio.current_music()
+		seen[id] = playing
+		_expect(playing != "", "%s starts a tune (%s)" % [stop[1], playing])
+
+	_expect(seen.get("town", "") != seen.get("world", ""),
+		"village and overworld differ (%s vs %s)" % [seen.get("town"), seen.get("world")])
+	_expect(seen.get("world", "") != seen.get("cave1", ""),
+		"overworld and cave differ (%s vs %s)" % [seen.get("world"), seen.get("cave1")])
+	_expect(seen.get("town", "") != seen.get("cave1", ""),
+		"village and cave differ (%s vs %s)" % [seen.get("town"), seen.get("cave1")])
+	_expect(seen.get("town", "") != seen.get("millbrook", ""),
+		"two villages differ (%s vs %s)" % [seen.get("town"), seen.get("millbrook")])
+
+	# and the overworld's three bands of country each have their own
+	var world: Maps.GameMap = maps["world"]
+	var bands := {}
+	for frac in [0.9, 0.5, 0.1]:
+		var y := int(world.h * frac)
+		var x := World.town_gate.x
+		# find somewhere standable on that line
+		for dx in range(0, world.w - x - 2):
+			if not Maps.is_solid(world.get_tile(x + dx, y)):
+				x = x + dx
+				break
+		field.enter("world", Vector2i(x, y))
+		bands[world.region_at(x, y)] = Audio.current_music()
+	print("  (overworld bands: %s)" % str(bands))
+	_expect(bands.size() >= 3 and bands.values().size() == bands.size(),
+		"each band of the overworld has its own tune (%s)" % str(bands))
+	var uniq := {}
+	for v in bands.values():
+		uniq[v] = true
+	_expect(uniq.size() == bands.size(),
+		"the overworld's bands do not share a tune (%s)" % str(bands))
+
+	field.queue_free()
+	Audio.stop_music()
 
 
 func _check_tunes() -> void:

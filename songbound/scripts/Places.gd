@@ -296,8 +296,10 @@ static func _make_dungeon(maps: Dictionary, d: Dictionary) -> void:
 		var fw: int = F1_W - i * 4
 		var fh: int = F1_H - i * 4
 		var m := Maps.GameMap.new(id, fw, fh, "X")
-		m.music = "cave" if i == 0 else "deep"
+		# the region names the tune; the Storm Spire is not a cave and should
+		# not sound like one
 		m.region = d.region
+		m.music = str(Data.REGIONS.get(d.region, {}).get("music", "cave"))
 		m.indoor = true
 
 		# A chain of chambers from the bottom-left up to the far end, tunnelled
