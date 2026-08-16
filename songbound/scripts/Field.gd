@@ -31,6 +31,9 @@ var enc_cool := 8
 var t := 0.0
 var rng := RandomNumberGenerator.new()
 
+var banner := ""                   # place name, shown briefly on arrival
+var banner_t := 0.0
+
 var msg = null                     # {lines, i, tick, npc, on_done}
 var repeat_t := {}
 var _was_ok := false
@@ -47,6 +50,24 @@ func enter(map_id: String, at: Vector2i = Vector2i(-1, -1), dir: String = "down"
 	# grace after a fight or a doorway, so you are never jumped twice in a row
 	enc_cool = ENCOUNTER_GRACE
 	Game.tile_pos = pos
+
+	# A place with a name says it once on arrival. In a world this size, "which
+	# town is this" is otherwise a question with no way to answer it.
+	var pname := Guide.place_name(map_id)
+	if pname != "" and pname != banner:
+		banner = pname
+		banner_t = 2.6
+	elif pname == "":
+		banner = ""
+		banner_t = 0.0
+
+	# what the goal chain reads to know the player has been out of town, and
+	# where the map draws "you are here" from
+	if map_id == "world":
+		Game.world_pos = pos
+		if Game.player != null:
+			Game.player.flags["seen_world"] = true
+
 	queue_redraw()
 
 
@@ -72,6 +93,9 @@ func repeated(action: String, dt: float) -> bool:
 
 
 func _process(dt: float) -> void:
+	if banner_t > 0.0:
+		banner_t = maxf(0.0, banner_t - dt)
+		queue_redraw()
 	t += dt
 	if map == null:
 		return
@@ -121,6 +145,8 @@ func _process(dt: float) -> void:
 			steps += 1
 			Game.steps += 1
 			Game.tile_pos = pos
+			if map.id == "world":
+				Game.world_pos = pos
 			var wp = map.warp_at(pos.x, pos.y)
 			if wp != null:
 				_try_warp(wp)
@@ -492,6 +518,47 @@ func _draw_hud() -> void:
 	UI.bar(self, 10, 18, 50, 4, float(p.hp) / float(p.max_hp()))
 	PixelFont.draw(self, "%d/%d" % [p.hp, p.max_hp()], Vector2(64, 16), Color("#c8c0dc"))
 	UI.bar(self, 10, 25, 50, 3, float(p.br) / float(p.max_br()), Color("#78b8f0"), Color("#2a5a9c"))
+
+	if map.id == "world":
+		_draw_compass()
+	if banner_t > 0.0:
+		_draw_banner()
+
+
+## A pointer to wherever the story is asking you to go, only on the overworld,
+## where it is possible to be genuinely lost. It shows the direction rather than
+## a route: there is a road, and following it is the game.
+func _draw_compass() -> void:
+	var goal := Guide.objective()
+	if goal.map != "world":
+		return
+	var to: Vector2i = goal.at
+	var d := Vector2(to.x - pos.x, to.y - pos.y)
+	if d.length() < 4.0:
+		return
+	var cx := UI.SCREEN_W - 26.0
+	var cy := 18.0
+	UI.window(self, UI.SCREEN_W - 46, 4, 42, 30, {"alpha": 0.8})
+	var a := d.normalized()
+	var tip := Vector2(cx, cy) + a * 8.0
+	var lft := Vector2(cx, cy) + a.rotated(2.5) * 6.0
+	var rgt := Vector2(cx, cy) + a.rotated(-2.5) * 6.0
+	draw_colored_polygon(PackedVector2Array([tip, lft, Vector2(cx, cy), rgt]), UI.COL_GOLD)
+	var steps := absi(to.x - pos.x) + absi(to.y - pos.y)
+	PixelFont.draw_centered(self, str(steps), int(cx), 26, Color("#c8c0dc"))
+
+
+## The name of the place, fading out. Drawn at the top rather than the middle so
+## it never sits over the character.
+func _draw_banner() -> void:
+	var a: float = clampf(banner_t / 0.6, 0.0, 1.0)
+	var w := PixelFont.width(banner) + 20
+	var x := (UI.SCREEN_W - w) / 2.0
+	UI.rect(self, x, 40, w, 16, Color(0.05, 0.04, 0.09, 0.72 * a))
+	UI.rect(self, x, 40, w, 1, Color(1, 1, 1, 0.16 * a))
+	UI.rect(self, x, 55, w, 1, Color(1, 1, 1, 0.16 * a))
+	PixelFont.draw_centered(self, banner, int(UI.SCREEN_W / 2), 44,
+		Color(UI.COL_GOLD.r, UI.COL_GOLD.g, UI.COL_GOLD.b, a))
 
 
 func _draw_msg() -> void:

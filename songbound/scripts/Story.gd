@@ -20,6 +20,8 @@ const OPENING := [
 	"Nobody is doing this to us. People die. People move down the valley. People set a fiddle in the corner one evening meaning to pick it up on Sunday, and then it is nine years later.",
 	"It is ordinary. It has been going on for as long as there have been songs. But it all goes somewhere, and lately the somewhere is close enough to hear.",
 	"You pack her kit -- rosin, spare strings, the little hammer -- and you go north, toward the humming.",
+	"Out the bottom of town, then. The road north runs six hundred paces to the cave and there are five towns on it, so do not try to do it in one go.",
+	"(Press C for the menu. WHERE says what you are doing. MAP shows the road.)",
 ]
 
 const SIGN_TOWN := [

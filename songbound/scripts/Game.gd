@@ -6,6 +6,9 @@ const SAVE_PATH := "user://songbound_save.json"
 var player: Player = null
 var map_id: String = "town"
 var tile_pos := Vector2i.ZERO
+## Last position on the overworld, kept so the map can say "you are here" from
+## inside a town or a cave, where tile_pos is a local coordinate.
+var world_pos := Vector2i.ZERO
 var facing: String = "down"
 var steps: int = 0
 var pending_ending := false
@@ -48,6 +51,8 @@ func save_game() -> bool:
 	d["map_id"] = map_id
 	d["tile_x"] = tile_pos.x
 	d["tile_y"] = tile_pos.y
+	d["world_x"] = world_pos.x
+	d["world_y"] = world_pos.y
 	d["facing"] = facing
 	d["steps"] = steps
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -73,6 +78,7 @@ func load_game() -> bool:
 	player.back = Sprites.back_view(player.spr)
 	map_id = str(parsed.get("map_id", "town"))
 	tile_pos = Vector2i(int(parsed.get("tile_x", 0)), int(parsed.get("tile_y", 0)))
+	world_pos = Vector2i(int(parsed.get("world_x", 0)), int(parsed.get("world_y", 0)))
 	facing = str(parsed.get("facing", "down"))
 	steps = int(parsed.get("steps", 0))
 	return true

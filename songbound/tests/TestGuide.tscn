@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://ctestguide0001"]
+
+[ext_resource type="Script" path="res://tests/test_guide.gd" id="1_tguide"]
+
+[node name="TestGuide" type="Node2D"]
+script = ExtResource("1_tguide")

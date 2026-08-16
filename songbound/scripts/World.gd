@@ -171,7 +171,8 @@ static func _world() -> void:
 		var wp: Vector2i = waypoints[i]
 		m.rect(wp.x - 2, wp.y - 2, 5, 5, "o")
 		m.set_tile(wp.x, wp.y - 2, "S")
-		m.npcs.append({"x": wp.x, "y": wp.y - 2, "sign": true, "lines": Story.SIGN_SHRINE})
+		m.npcs.append({"x": wp.x, "y": wp.y - 2, "sign": true,
+			"lines": _signpost(wp, town, cave)})
 		if i % 2 == 0:
 			m.chests.append({"x": wp.x + 1, "y": wp.y + 1,
 				"item": chest_items[i % chest_items.size()], "id": "wp%d" % i})
@@ -203,6 +204,32 @@ static func _world() -> void:
 	m.region = "meadow"
 	m.start = Vector2i(town.x, town.y + 3)
 	maps["world"] = m
+
+
+## What a roadside post says: the three nearest places by name, which way, and
+## how far. Written at generation time from where things actually ended up, so
+## a sign cannot end up pointing at a town that moved.
+static func _signpost(at: Vector2i, town: Vector2i, cave: Vector2i) -> Array:
+	var all: Array = [
+		{"name": "Cane Ridge", "at": town},
+		{"name": "the cave", "at": cave},
+	]
+	for id in Places.sites:
+		var site: Dictionary = Places.sites[id]
+		all.append({"name": site.name, "at": site.gate})
+	for e in all:
+		var d: Vector2i = e.at - at
+		e["dist"] = absi(d.x) + absi(d.y)
+	all.sort_custom(func(a, b): return a.dist < b.dist)
+
+	var lines: Array = ["A post at the roadside, with boards nailed across it."]
+	var body := ""
+	for i in mini(3, all.size()):
+		var e: Dictionary = all[i]
+		body += "%s -- %s, %d\n" % [
+			str(e.name).to_upper(), Guide.compass(at, e.at).to_upper(), int(e.dist)]
+	lines.append(body.strip_edges())
+	return lines
 
 
 static func _town() -> void:
