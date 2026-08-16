@@ -43,6 +43,54 @@ const NPC_LOOKS := {
 }
 
 
+## Each palette entry's neighbours within its own colour ramp, so a sprite can
+## be shaded without introducing colours that are not in the palette.
+const DARKER := {
+	2: 1, 3: 2, 4: 3, 5: 4, 6: 5,
+	8: 7, 9: 8,
+	10: 11, 11: 12,
+	14: 13, 15: 14,
+	17: 16, 18: 17,
+	20: 19, 21: 20,
+	23: 22, 24: 23, 25: 24,
+	27: 26, 28: 27,
+	30: 29, 31: 30,
+}
+const LIGHTER := {
+	1: 2, 2: 3, 3: 4, 4: 5, 5: 6,
+	7: 8, 8: 9,
+	12: 11, 11: 10,
+	13: 14, 14: 15,
+	16: 17, 17: 18,
+	19: 20, 20: 21,
+	22: 23, 23: 24, 24: 25,
+	26: 27, 27: 28,
+	29: 30, 30: 31,
+}
+
+
+## Light from the top left, same as the tiles. A pixel with empty space or
+## outline to its left catches the light; one with empty space to its right
+## falls away. Cheap, and it turns flat fills into something with volume.
+static func shade(g: PackedByteArray) -> PackedByteArray:
+	var out := g.duplicate()
+	for y in H:
+		for x in W:
+			var v := get_px(g, x, y)
+			if v == 0 or v == 1:
+				continue
+			var left := get_px(g, x - 1, y)
+			var right := get_px(g, x + 1, y)
+			var up := get_px(g, x, y - 1)
+			if (left == 0 or left == 1) and LIGHTER.has(v):
+				out[y * W + x] = LIGHTER[v]
+			elif (right == 0 or right == 1) and DARKER.has(v):
+				out[y * W + x] = DARKER[v]
+			elif (up == 0 or up == 1) and LIGHTER.has(v):
+				out[y * W + x] = LIGHTER[v]
+	return out
+
+
 static func blank() -> PackedByteArray:
 	var g := PackedByteArray()
 	g.resize(W * H)
@@ -131,7 +179,8 @@ static func build(o: Dictionary) -> PackedByteArray:
 		for i in s.size():
 			if s[i] != OUT:
 				s[i] = 0
-	return s
+		return s
+	return shade(s)
 
 
 ## Derive a back view so the character does not stare at you while walking away:
