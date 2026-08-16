@@ -328,7 +328,7 @@ static func _caves() -> void:
 	maps["cave1"] = c1
 
 	var c2 := Maps.GameMap.new("cave2", 34, 26, "X")
-	c2.music = "cave"; c2.region = "deep"; c2.indoor = true
+	c2.music = "deep"; c2.region = "deep"; c2.indoor = true
 	Maps.tunnel(c2, [Vector2i(6, 22), Vector2i(6, 16), Vector2i(12, 13), Vector2i(20, 15),
 		Vector2i(24, 9), Vector2i(17, 6)], 2)
 	Maps.carve(c2, 17, 6, 5)
@@ -344,7 +344,7 @@ static func _caves() -> void:
 	maps["cave2"] = c2
 
 	var c3 := Maps.GameMap.new("cave3", 32, 24, "X")
-	c3.music = "cave"; c3.region = "deep"; c3.indoor = true
+	c3.music = "deep"; c3.region = "deep"; c3.indoor = true
 	Maps.tunnel(c3, [Vector2i(5, 20), Vector2i(5, 14), Vector2i(11, 11), Vector2i(19, 13),
 		Vector2i(25, 8), Vector2i(16, 5)], 2)
 	Maps.carve(c3, 16, 5, 5)
@@ -361,7 +361,7 @@ static func _caves() -> void:
 	maps["cave3"] = c3
 
 	var f := Maps.GameMap.new("final", 21, 20, "X")
-	f.music = "cave"; f.region = "deep"; f.indoor = true
+	f.music = "deep"; f.region = "deep"; f.indoor = true
 	for p in [Vector2i(10, 17), Vector2i(10, 15), Vector2i(10, 13)]:
 		Maps.carve(f, p.x, p.y, 2)
 	Maps.carve(f, 10, 9, 6)

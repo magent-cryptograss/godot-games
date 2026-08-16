@@ -285,7 +285,7 @@ func do_song(sd: Dictionary, idx: int) -> void:
 	p.br -= sd.cost
 	var el: Dictionary = Data.element(sd.elem)
 	var aff: int = p.affinity.get(sd.elem, 0)
-	Audio.play_song(sd.elem, Data.instrument(p.inst))
+	Audio.play_song(sd.elem, Data.instrument(p.inst), str(sd.get("tune", "")))
 	fx = {"kind": "song", "elem": sd.elem, "t": 0.0, "target": sd.target, "idx": idx}
 	set_msg("%s plays %s!" % [p.name, sd.name])
 

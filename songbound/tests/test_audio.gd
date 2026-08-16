@@ -14,6 +14,10 @@ func _ready() -> void:
 	print("")
 	print("== audio ==")
 	_check_voices()
+	_check_drums()
+	_check_echo()
+	_check_names()
+	_check_song_tunes()
 	_check_pitch()
 	_check_tunes()
 	_render_all()
@@ -32,7 +36,8 @@ func _expect(cond: bool, what: String) -> void:
 
 func _check_voices() -> void:
 	# every voice must produce audible signal, not silence and not a DC blast
-	for voice in ["pluck", "bow", "reed", "bell", "bass", "noise"]:
+	for voice in ["pluck", "bow", "reed", "bell", "bass", "noise",
+			"lead", "harp", "strings", "flute"]:
 		var w := Audio._render(voice, 440.0, 0.5, 8.0)
 		var s := Audio._samples_of(w)
 		var level := Audio.rms(s)
@@ -41,6 +46,59 @@ func _check_voices() -> void:
 		var head := Audio.rms(s.slice(0, int(s.size() * 0.2)))
 		var tail := Audio.rms(s.slice(int(s.size() * 0.8)))
 		_expect(tail < head, "%s decays (%.3f -> %.3f)" % [voice, head, tail])
+
+
+## The kit is one voice that picks its drum from the pitch it is handed, so the
+## three of them have to actually come out different.
+func _check_drums() -> void:
+	var levels := {}
+	for d in [["kick", 32.7], ["snare", 130.8], ["hat", 1046.5]]:
+		var s := Audio._samples_of(Audio._render("drum", float(d[1]), 0.3, 8.0))
+		levels[d[0]] = Audio.rms(s)
+		_expect(levels[d[0]] > 0.01, "%s sounds (rms %.3f)" % [d[0], levels[d[0]]])
+	# a kick is mostly low energy and a hat is mostly high; if the branch ever
+	# stops branching they come out identical
+	var kick := Audio._samples_of(Audio._render("drum", 32.7, 0.3, 8.0))
+	var hat := Audio._samples_of(Audio._render("drum", 1046.5, 0.3, 8.0))
+	var kz := _crossings(kick)
+	var hz := _crossings(hat)
+	_expect(hz > kz * 4, "the hat is far brighter than the kick (%d vs %d crossings)" % [hz, kz])
+
+
+func _crossings(s: PackedFloat32Array) -> int:
+	var n := 0
+	for i in range(1, s.size()):
+		if (s[i - 1] < 0.0) != (s[i] < 0.0):
+			n += 1
+	return n
+
+
+## The echo is the sound being asked for, so it gets a real check: with it on,
+## the note has to keep ringing after the note has stopped.
+func _check_echo() -> void:
+	var dry := Audio._samples_of(Audio._render("lead", 440.0, 0.35, 9.0, 0.0))
+	var wet := Audio._samples_of(Audio._render("lead", 440.0, 0.35, 9.0, 1.0))
+	_expect(wet.size() > dry.size(),
+		"the echo leaves room to ring (%d samples vs %d)" % [wet.size(), dry.size()])
+
+	# energy in the second after the note ends -- silence in a dry render
+	var tail_from := dry.size()
+	var tail := PackedFloat32Array()
+	for i in range(tail_from, wet.size()):
+		tail.append(wet[i])
+	var tail_level := Audio.rms(tail)
+	_expect(tail_level > 0.004,
+		"the note is still ringing after it stops (tail rms %.4f)" % tail_level)
+
+	# and it has to die away rather than run forever
+	var first := PackedFloat32Array()
+	var last := PackedFloat32Array()
+	var half := int(tail.size() / 2)
+	for i in half:
+		first.append(tail[i])
+		last.append(tail[half + i])
+	_expect(Audio.rms(last) < Audio.rms(first),
+		"the echo dies away (%.4f -> %.4f)" % [Audio.rms(first), Audio.rms(last)])
 
 
 func _check_pitch() -> void:
@@ -59,8 +117,48 @@ func _check_pitch() -> void:
 	_expect(Audio.note_freq("0") == 0.0, "rest is silent")
 
 
+## The song row: name drawn from x=125 in the menu, breath cost right-aligned at
+## x=306, and an upgraded song gains a " +1" on the end. That leaves about 150px
+## for the name itself.
+const NAME_BUDGET := 150
+
+func _check_names() -> void:
+	var worst := 0
+	var over: Array = []
+	for elem in Data.SONGS:
+		for song in Data.SONGS[elem]:
+			var w := PixelFont.width(str(song.name) + " +1")
+			worst = maxi(worst, w)
+			if w > NAME_BUDGET:
+				over.append("%s (%dpx)" % [song.name, w])
+	print("  (widest song name is %dpx of %dpx)" % [worst, NAME_BUDGET])
+	_expect(over.is_empty(), "every song name fits its row (%s)" % str(over))
+
+
+## Each song is a named tune and should play that tune, not a generic flourish.
+func _check_song_tunes() -> void:
+	var missing: Array = []
+	var bad: Array = []
+	for elem in Data.SONGS:
+		for song in Data.SONGS[elem]:
+			var t := str(song.get("tune", ""))
+			if t == "":
+				missing.append(song.name)
+				continue
+			var notes := Tunes.seq(t)
+			if notes.size() < 4:
+				bad.append("%s (%d notes)" % [song.name, notes.size()])
+			for ev in notes:
+				if Audio.note_freq(str(ev[0])) <= 0.0:
+					bad.append("%s has an unplayable note %s" % [song.name, ev[0]])
+	_expect(missing.is_empty(), "all 64 songs have a tune (%s)" % str(missing))
+	_expect(bad.is_empty(), "every tune is playable (%s)" % str(bad))
+
+
 func _check_tunes() -> void:
-	_expect(Audio.TUNES.size() == 9, "%d tunes defined" % Audio.TUNES.size())
+	var expect: int = Tunes.all().size()
+	_expect(Audio.TUNES.size() == expect,
+		"all %d traditional tunes loaded (got %d)" % [expect, Audio.TUNES.size()])
 	for name in Audio.TUNES:
 		var tune: Dictionary = Audio.TUNES[name]
 		var bad := 0
@@ -78,7 +176,7 @@ func _check_tunes() -> void:
 
 func _render_all() -> void:
 	print("")
-	for name in ["title", "town", "field", "battle", "boss", "cave", "ending"]:
+	for name in Tunes.all().keys():
 		var secs := 12.0
 		var mix := Audio.render_tune(name, secs)
 		var level := Audio.rms(mix)

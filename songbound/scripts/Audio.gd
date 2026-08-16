@@ -6,7 +6,14 @@ extends Node
 ## which matters because a tune reuses the same handful of notes constantly.
 
 const MIX_RATE := 22050
-const POOL := 20
+const POOL := 24
+
+## The echo. 115ms at a bit under half feedback is the sound of most of the
+## Super Nintendo's back catalogue; the tail is how long the note is allowed to
+## ring on after it stops being played.
+const ECHO_S := 0.115
+const ECHO_FB := 0.40
+const ECHO_TAIL := 0.62
 
 var _cache := {}
 var _players: Array[AudioStreamPlayer] = []
@@ -23,6 +30,7 @@ var rng := RandomNumberGenerator.new()
 
 
 func _ready() -> void:
+	TUNES = Tunes.all()
 	for i in POOL:
 		var p := AudioStreamPlayer.new()
 		p.bus = "Master"
@@ -41,14 +49,17 @@ func _env(i: int, n: int, attack: float, decay_shape: float) -> float:
 
 ## Render one note. Voices deliberately mirror the HTML build so the instrument
 ## you pick still changes the character of your songs.
-func _render(voice: String, freq: float, dur: float, bright: float) -> AudioStreamWAV:
+func _render(voice: String, freq: float, dur: float, bright: float, echo: float = 0.0) -> AudioStreamWAV:
 	var n := int(MIX_RATE * dur)
-	var data := PackedByteArray()
-	data.resize(n * 2)
+	var tail := int(MIX_RATE * ECHO_TAIL) if echo > 0.0 else 0
+	var buf := PackedFloat32Array()
+	buf.resize(n + tail)
 	var phase := 0.0
 	var phase2 := 0.0
+	var phase3 := 0.0
 	var step := freq / MIX_RATE
 	var lp := 0.0
+	var lp2 := 0.0
 	for i in n:
 		var s := 0.0
 		match voice:
@@ -88,10 +99,79 @@ func _render(voice: String, freq: float, dur: float, bright: float) -> AudioStre
 				s = lp * _env(i, n, 0.01, 1.6)
 			"noise":
 				s = (rng.randf() * 2.0 - 1.0) * _env(i, n, 0.001, 3.0)
+
+			"lead":
+				# The tune. A sampled-sounding lead: saw and square blended, run
+				# through a lowpass that tracks the note, with the vibrato held
+				# back until the note has had time to speak. Vibrato from the
+				# first sample is the giveaway of a synthesiser; a player puts it
+				# on afterwards.
+				var f2: float = float(i) / float(n)
+				var vb := 1.0 + sin(TAU * 5.2 * float(i) / MIX_RATE) * 0.006 * smoothstep(0.18, 0.55, f2)
+				phase = fmod(phase + step * vb, 1.0)
+				phase2 = fmod(phase2 + step * vb * 1.004, 1.0)
+				var mix := (phase * 2.0 - 1.0) * 0.55 + (1.0 if phase2 < 0.42 else -1.0) * 0.3
+				var lfc := clampf(freq * bright * (1.0 - 0.35 * f2), 200.0, MIX_RATE * 0.45)
+				lp += (mix - lp) * (1.0 - exp(-TAU * lfc / MIX_RATE))
+				s = lp * _env(i, n, 0.03, 0.55)
+
+			"harp":
+				# The inner voice, running arpeggios under the tune. Short,
+				# round, and quiet enough to sit underneath.
+				phase = fmod(phase + step, 1.0)
+				var tri2 := absf(phase * 4.0 - 2.0) - 1.0
+				var hfc := clampf(freq * 6.0 * (1.0 - 0.5 * float(i) / n), 150.0, MIX_RATE * 0.45)
+				lp += (tri2 - lp) * (1.0 - exp(-TAU * hfc / MIX_RATE))
+				s = lp * _env(i, n, 0.006, 2.2)
+
+			"strings":
+				# Three saws pulled slightly apart. The beating between them is
+				# the whole effect -- one saw is a buzz, three is an ensemble.
+				phase = fmod(phase + step * 0.997, 1.0)
+				phase2 = fmod(phase2 + step, 1.0)
+				phase3 = fmod(phase3 + step * 1.003, 1.0)
+				var ens := ((phase + phase2 + phase3) * 2.0 / 3.0 - 1.0)
+				var sfc := clampf(freq * 4.5, 200.0, MIX_RATE * 0.45)
+				lp += (ens - lp) * (1.0 - exp(-TAU * sfc / MIX_RATE))
+				s = lp * _env(i, n, 0.28, 0.35) * 0.9
+
+			"flute":
+				var f3: float = float(i) / float(n)
+				var fv := 1.0 + sin(TAU * 4.8 * float(i) / MIX_RATE) * 0.007 * smoothstep(0.2, 0.6, f3)
+				phase = fmod(phase + step * fv, 1.0)
+				var body := sin(TAU * phase) + sin(TAU * phase * 2.0) * 0.12
+				# breath, filtered so it is air and not hiss
+				lp2 += ((rng.randf() * 2.0 - 1.0) - lp2) * 0.22
+				s = (body * 0.8 + lp2 * 0.10) * _env(i, n, 0.14, 0.45)
+
+			"drum":
+				# One voice, three drums, chosen by the pitch it is asked for --
+				# so a single track can carry a whole kit.
+				var t3: float = float(i) / MIX_RATE
+				if freq < 80.0:
+					var swp := 118.0 * exp(-t3 * 26.0) + 41.0
+					phase = fmod(phase + swp / MIX_RATE, 1.0)
+					s = sin(TAU * phase) * exp(-t3 * 15.0) * 1.1
+				elif freq < 400.0:
+					phase = fmod(phase + 186.0 / MIX_RATE, 1.0)
+					s = (sin(TAU * phase) * 0.35 + (rng.randf() * 2.0 - 1.0) * 0.75) * exp(-t3 * 24.0)
+				else:
+					var hn := rng.randf() * 2.0 - 1.0
+					lp2 += (hn - lp2) * 0.6
+					s = (hn - lp2) * exp(-t3 * 90.0) * 0.5
+
 			_:
 				phase = fmod(phase + step, 1.0)
 				s = (1.0 if phase < 0.5 else -1.0) * _env(i, n, 0.01, 2.0)
-		var v := int(clampf(s, -1.0, 1.0) * 26000.0)
+		buf[i] = s
+
+	if echo > 0.0:
+		_echo(buf, echo)
+
+	var data := PackedByteArray()
+	data.resize(buf.size() * 2)
+	for i in buf.size():
+		var v := int(clampf(buf[i], -1.0, 1.0) * 26000.0)
 		data[i * 2] = v & 0xFF
 		data[i * 2 + 1] = (v >> 8) & 0xFF
 
@@ -103,17 +183,30 @@ func _render(voice: String, freq: float, dur: float, bright: float) -> AudioStre
 	return w
 
 
-func _stream(voice: String, freq: float, dur: float, bright: float) -> AudioStreamWAV:
-	var key := "%s:%d:%d:%d" % [voice, int(freq), int(dur * 100), int(bright)]
+## A feedback delay, darkening as it repeats. The darkening matters: a bright
+## echo sounds like a fault, a dark one sounds like a room.
+func _echo(buf: PackedFloat32Array, amount: float) -> void:
+	var d := int(ECHO_S * MIX_RATE)
+	if d < 1 or d >= buf.size():
+		return
+	var damp := 0.0
+	for i in range(d, buf.size()):
+		damp += (buf[i - d] - damp) * 0.45
+		buf[i] += damp * ECHO_FB * amount
+
+
+func _stream(voice: String, freq: float, dur: float, bright: float, echo: float) -> AudioStreamWAV:
+	var key := "%s:%d:%d:%d:%d" % [voice, int(freq), int(dur * 100), int(bright), int(echo * 10)]
 	if not _cache.has(key):
-		_cache[key] = _render(voice, freq, dur, bright)
+		_cache[key] = _render(voice, freq, dur, bright, echo)
 	return _cache[key]
 
 
-func _play(voice: String, freq: float, dur: float, vol_db: float, bright: float = 8.0) -> void:
+func _play(voice: String, freq: float, dur: float, vol_db: float, bright: float = 8.0,
+		echo: float = 0.0) -> void:
 	var p := _players[_next_player]
 	_next_player = (_next_player + 1) % POOL
-	p.stream = _stream(voice, freq, dur, bright)
+	p.stream = _stream(voice, freq, dur, bright, echo)
 	p.volume_db = vol_db
 	p.play()
 
@@ -149,76 +242,17 @@ static func seq(s: String) -> Array:
 
 # ------------------------------------------------------------------ tunes --
 
-var TUNES := {
-	"title": {"tempo": 72, "tracks": [
-		{"voice": "pluck", "vol": -12.0, "bright": 9.0, "seq": seq(
-			"D4:1 A4:1 F4:.5 A4:.5 D5:1.5 C5:.5 A4:1 F4:1 D4:1 E4:2 0:1 " +
-			"C4:1 G4:1 E4:.5 G4:.5 C5:1.5 Bb4:.5 G4:1 E4:1 D4:1 D4:2 0:1")},
-		{"voice": "bass", "vol": -14.0, "seq": seq("D2:2 A2:2 D2:2 A2:2 C2:2 G2:2 D2:2 D2:2")},
-	]},
-	"creation": {"tempo": 88, "tracks": [
-		{"voice": "bell", "vol": -14.0, "seq": seq(
-			"G4:1 B4:.5 D5:.5 G5:1 D5:1 B4:1 A4:.5 B4:.5 G4:2 " +
-			"E4:1 G4:.5 B4:.5 E5:1 B4:1 G4:1 F#4:.5 G4:.5 E4:2")},
-		{"voice": "bass", "vol": -15.0, "seq": seq("G2:2 G2:2 E2:2 E2:2 C3:2 C3:2 D3:2 D3:2")},
-	]},
-	"field": {"tempo": 126, "tracks": [
-		{"voice": "pluck", "vol": -13.0, "bright": 8.0, "seq": seq(
-			"A3:.5 C4:.5 E4:.5 A4:.5 G4:.5 E4:.5 D4:.5 C4:.5 " +
-			"A3:.5 C4:.5 E4:.5 G4:.5 A4:1 E4:1 " +
-			"D4:.5 E4:.5 G4:.5 A4:.5 G4:.5 E4:.5 D4:.5 C4:.5 " +
-			"A3:.5 B3:.5 C4:.5 D4:.5 E4:1 A3:1 " +
-			"A3:.5 C4:.5 E4:.5 A4:.5 B4:.5 A4:.5 G4:.5 E4:.5 " +
-			"D4:.5 E4:.5 D4:.5 C4:.5 A3:1 G3:1 " +
-			"A3:.5 C4:.5 D4:.5 E4:.5 G4:.5 E4:.5 D4:.5 C4:.5 A3:1 E3:1 A3:2")},
-		{"voice": "bass", "vol": -13.0, "seq": seq("A2:1 E3:1 A2:1 E3:1 G2:1 D3:1 G2:1 D3:1")},
-	]},
-	"town": {"tempo": 104, "tracks": [
-		{"voice": "pluck", "vol": -12.0, "bright": 9.0, "seq": seq(
-			"D4:1 G4:.5 B4:.5 A4:1 G4:1 E4:.5 G4:.5 D4:1 B3:1 " +
-			"D4:1 G4:.5 B4:.5 D5:1 C5:1 B4:.5 A4:.5 G4:1.5 0:.5 " +
-			"E4:1 G4:.5 A4:.5 B4:1 A4:1 G4:.5 E4:.5 D4:1 E4:1 " +
-			"G4:1 A4:.5 B4:.5 A4:1 G4:1 D4:1 G4:2")},
-		{"voice": "bass", "vol": -14.0, "seq": seq("G2:1 D3:1 G2:1 C3:1 G2:1 D3:1 G2:1 G2:1")},
-	]},
-	"cave": {"tempo": 80, "tracks": [
-		{"voice": "bow", "vol": -14.0, "seq": seq("C2:4 C2:4 Ab2:4 Bb2:4 F2:4 F2:4 G2:2 Ab2:2")},
-		{"voice": "bell", "vol": -17.0, "seq": seq(
-			"C4:1 Eb4:.5 C4:.5 G3:2 0:1 Ab3:1 G3:.5 F3:.5 Eb3:2 0:1 " +
-			"C4:1 G4:.5 Eb4:.5 C4:2 0:1 Bb3:1 Ab3:1 G3:2 0:1")},
-	]},
-	"battle": {"tempo": 164, "tracks": [
-		{"voice": "pluck", "vol": -12.0, "bright": 11.0, "seq": seq(
-			"D4:.25 E4:.25 F4:.5 A4:.5 F4:.5 E4:.5 D4:.5 " +
-			"C4:.25 D4:.25 E4:.5 F4:.5 E4:.5 D4:.5 C4:.5 " +
-			"Bb3:.25 C4:.25 D4:.5 E4:.5 F4:.5 E4:.5 D4:.5 " +
-			"C4:.5 Bb3:.5 A3:1 0:1 " +
-			"A4:.25 Bb4:.25 D5:.5 A4:.5 F4:.5 D4:.5 E4:.5 " +
-			"F4:.25 E4:.25 D4:.5 C4:.5 Bb3:.5 C4:.5 D4:.5 " +
-			"E4:.5 F4:.5 A4:.5 F4:.5 E4:.5 D4:.5 C4:.5 Bb3:.5 D4:2")},
-		{"voice": "bass", "vol": -12.0, "seq": seq(
-			"D2:.5 A2:.5 D2:.5 A2:.5 C2:.5 G2:.5 C2:.5 G2:.5 " +
-			"Bb1:.5 F2:.5 Bb1:.5 F2:.5 A1:.5 E2:.5 A1:.5 A1:.5")},
-	]},
-	"boss": {"tempo": 148, "tracks": [
-		{"voice": "pluck", "vol": -12.0, "bright": 12.0, "seq": seq(
-			"D4:.5 D4:.25 F4:.25 D4:.5 A4:.5 G4:.5 F4:.5 E4:.5 D4:.5 " +
-			"C4:.5 C4:.25 E4:.25 C4:.5 G4:.5 F4:.5 E4:.5 D4:.5 C4:.5 " +
-			"Bb3:.5 D4:.5 F4:.5 A4:.5 Bb4:1 A4:1 " +
-			"G4:.5 F4:.5 E4:.5 D4:.5 C#4:1 D4:1")},
-		{"voice": "bass", "vol": -11.0, "seq": seq("D2:.5 D2:.5 D2:.5 A2:.5 C2:.5 C2:.5 Bb1:.5 A1:.5")},
-	]},
-	"victory": {"tempo": 148, "loop": false, "tracks": [
-		{"voice": "pluck", "vol": -10.0, "bright": 10.0, "seq": seq(
-			"D4:.25 D4:.25 D4:.25 D4:1 Bb3:.5 C4:.5 D4:1.5 0:6")},
-		{"voice": "bass", "vol": -12.0, "seq": seq("D2:.75 D2:.75 Bb1:.5 C2:1 D2:2 0:6")},
-	]},
-	"ending": {"tempo": 90, "tracks": [
-		{"voice": "bell", "vol": -12.0, "seq": seq(
-			"G3:1 D4:1 B3:.5 D4:.5 G4:2 F#4:.5 E4:.5 D4:1 B3:1 A3:1 G3:2 0:1 " +
-			"E3:1 C4:1 A3:.5 C4:.5 E4:2 D4:.5 C4:.5 B3:1 A3:1 G3:1 D3:2 0:1")},
-		{"voice": "bow", "vol": -15.0, "seq": seq("G2:4 G2:4 C3:4 D3:4 E2:4 C3:4 D3:4 G2:4")},
-	]},
+## The soundtrack lives in Tunes.gd: traditional fiddle tunes, breakdowns,
+## hymns and ballads, all of them old enough to have no author left on them.
+var TUNES := {}
+
+
+## How wet each voice sits in the echo. The tune and its inner voices want to be
+## in a big room; the kick drum wants to be in the front of it, or the low end
+## turns to mud.
+const VOICE_ECHO := {
+	"lead": 0.95, "flute": 1.0, "strings": 0.9, "harp": 0.8, "bell": 0.9,
+	"bow": 0.8, "pluck": 0.7, "reed": 0.7, "bass": 0.3, "drum": 0.25,
 }
 
 
@@ -266,7 +300,8 @@ func _process(dt: float) -> void:
 			var dur := beats * spb
 			var f := note_freq(str(ev[0]))
 			if f > 0.0:
-				_play(tr.voice, f, minf(dur * 0.95, 2.0), tr.vol, tr.get("bright", 8.0))
+				_play(tr.voice, f, minf(dur * 0.95, 2.0), tr.vol, tr.get("bright", 8.0),
+					VOICE_ECHO.get(str(tr.voice), 0.6))
 			c.next += dur
 			c.i += 1
 
@@ -283,11 +318,11 @@ func sfx(name: String) -> void:
 		"hit": _play("noise", 400, 0.13, -12.0)
 		"crit": _play("noise", 600, 0.24, -9.0)
 		"miss": _play("noise", 3000, 0.13, -20.0)
-		"heal": _play("bell", 784, 0.5, -13.0)
-		"buff": _play("bell", 880, 0.35, -14.0)
+		"heal": _play("bell", 784, 0.5, -13.0, 8.0, 0.8)
+		"buff": _play("bell", 880, 0.35, -14.0, 8.0, 0.8)
 		"debuff": _play("bow", 260, 0.3, -14.0)
-		"levelup": _play("bell", 1046, 0.8, -10.0)
-		"chest": _play("bell", 880, 0.45, -12.0)
+		"levelup": _play("bell", 1046, 0.8, -10.0, 8.0, 0.9)
+		"chest": _play("bell", 880, 0.45, -12.0, 8.0, 0.7)
 		"door": _play("noise", 300, 0.2, -18.0)
 		"step": _play("noise", 500, 0.04, -28.0)
 		"encounter": _play("square", 220, 0.2, -13.0)
@@ -297,24 +332,43 @@ func sfx(name: String) -> void:
 		"draw": _play("square", 1400, 0.02, -30.0)
 
 
-## A flourish in the player's own instrument, in the element's scale.
-func play_song(elem: String, inst: Dictionary) -> void:
+## The head of the song being played, in the player's own instrument.
+##
+## Every song used to make the same flourish -- five notes up the element's
+## scale, identical across all eight of an element's songs. Each one is a named
+## traditional tune now and gets its own phrase, so the eight songs of an
+## element are eight different tunes rather than one sound played eight times.
+func play_song(elem: String, inst: Dictionary, tune: String = "") -> void:
 	if not _sfx_on:
 		return
+	var voice: String = inst.get("voice", "pluck")
+	if voice == "drum" or voice == "noise":
+		voice = "pluck"
+	var bright: float = inst.get("bright", 8.0)
+
+	if tune != "":
+		var at := 0.0
+		for ev in Tunes.seq(tune):
+			var f := note_freq(str(ev[0]))
+			var beats: float = float(ev[1])
+			if f > 0.0:
+				# staggered with timers: the battle has no sequencer of its own
+				get_tree().create_timer(at).timeout.connect(
+					func() -> void: _play(voice, f, maxf(beats * 1.6, 0.28), -12.0, bright, 0.85))
+			at += beats
+		return
+
+	# nothing written down for this one: fall back to the old flourish
 	var scale: Array = {
 		"fire": [392, 466, 587, 698], "water": [349, 440, 523, 659],
 		"plant": [330, 415, 494, 622], "ice": [523, 622, 784, 932],
 		"electric": [440, 554, 659, 880], "earth": [196, 233, 294, 349],
 		"wind": [587, 698, 880, 1047], "dark": [262, 311, 392, 466],
 	}.get(elem, [440, 554, 659, 880])
-	var voice: String = inst.get("voice", "pluck")
-	if voice == "drum":
-		voice = "noise"
 	for i in 5:
-		var f: float = scale[i % scale.size()] * (2.0 if i >= scale.size() else 1.0)
-		# staggered by hand rather than with timers: five short one-shots
+		var f2: float = scale[i % scale.size()] * (2.0 if i >= scale.size() else 1.0)
 		get_tree().create_timer(i * 0.075).timeout.connect(
-			func() -> void: _play(voice, f, 0.4, -13.0, inst.get("bright", 8.0)))
+			func() -> void: _play(voice, f2, 0.4, -13.0, bright, 0.7))
 
 
 ## ----------------------------------------------------------------------------
@@ -361,7 +415,8 @@ func render_tune(name: String, seconds: float) -> PackedFloat32Array:
 			var dur: float = ev[1] * spb
 			var f := note_freq(str(ev[0]))
 			if f > 0.0:
-				var w := _stream(tr.voice, f, minf(dur * 0.95, 2.0), tr.get("bright", 8.0))
+				var w := _stream(tr.voice, f, minf(dur * 0.95, 2.0), tr.get("bright", 8.0),
+					VOICE_ECHO.get(str(tr.voice), 0.6))
 				var s := _samples_of(w)
 				var off := int(at * MIX_RATE)
 				# tracks are written at their own level, then summed

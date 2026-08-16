@@ -30,7 +30,7 @@ const TOWN_GATE := Vector2i(14, 25)
 static func towns() -> Array:
 	return [
 		{
-			"id": "millbrook", "name": "Millbrook", "at": Vector2(0.34, 0.72), "seed": 3101,
+			"id": "millbrook", "music": "town_millbrook", "name": "Millbrook", "at": Vector2(0.34, 0.72), "seed": 3101,
 			"ground": ".", "tuft": "f", "wall": "T", "inn": 60,
 			"stock": ["tonic", "rosin", "salve", "bread"],
 			"sign": Story.MILLBROOK_SIGN, "innkeep": Story.MILLBROOK_INN, "shopkeep": Story.MILLBROOK_SHOP,
@@ -42,7 +42,7 @@ static func towns() -> Array:
 			"decor": "well", "chest": "rosin",
 		},
 		{
-			"id": "longferry", "name": "Longferry", "at": Vector2(0.46, 0.58), "seed": 3102,
+			"id": "longferry", "music": "town_longferry", "name": "Longferry", "at": Vector2(0.46, 0.58), "seed": 3102,
 			"ground": ".", "tuft": "f", "wall": "%", "inn": 60,
 			"stock": ["tonic", "tonic2", "rosin", "salve", "charm"],
 			"sign": Story.LONGFERRY_SIGN, "innkeep": Story.LONGFERRY_INN, "shopkeep": Story.LONGFERRY_SHOP,
@@ -54,7 +54,7 @@ static func towns() -> Array:
 			"decor": "water", "chest": "tonic2",
 		},
 		{
-			"id": "highwater", "name": "Highwater", "at": Vector2(0.24, 0.44), "seed": 3103,
+			"id": "highwater", "music": "town_highwater", "name": "Highwater", "at": Vector2(0.24, 0.44), "seed": 3103,
 			"ground": ",", "tuft": "f", "wall": "P", "inn": 100,
 			"stock": ["tonic", "tonic2", "rosin", "rosin2", "salve", "strings"],
 			"sign": Story.HIGHWATER_SIGN, "innkeep": Story.HIGHWATER_INN, "shopkeep": Story.HIGHWATER_SHOP,
@@ -66,7 +66,7 @@ static func towns() -> Array:
 			"decor": "graves", "chest": "strings",
 		},
 		{
-			"id": "ashfall", "name": "Ashfall", "at": Vector2(0.50, 0.30), "seed": 3104,
+			"id": "ashfall", "music": "town_ashfall", "name": "Ashfall", "at": Vector2(0.50, 0.30), "seed": 3104,
 			"ground": "q", "tuft": "\"", "wall": "^", "inn": 160,
 			"stock": ["tonic", "tonic2", "rosin", "rosin2", "salve", "bread", "strings", "charm"],
 			"sign": Story.ASHFALL_SIGN, "innkeep": Story.ASHFALL_INN, "shopkeep": Story.ASHFALL_SHOP,
@@ -78,7 +78,7 @@ static func towns() -> Array:
 			"decor": "well", "chest": "rosin2",
 		},
 		{
-			"id": "lastchord", "name": "Last Chord", "at": Vector2(0.40, 0.13), "seed": 3105,
+			"id": "lastchord", "music": "town_lastchord", "name": "Last Chord", "at": Vector2(0.40, 0.13), "seed": 3105,
 			"ground": ",", "tuft": "\"", "wall": "^", "inn": 240,
 			"stock": ["tonic", "tonic2", "rosin", "rosin2", "salve", "bread", "strings", "charm"],
 			"sign": Story.LASTCHORD_SIGN, "innkeep": Story.LASTCHORD_INN, "shopkeep": Story.LASTCHORD_SHOP,
@@ -179,7 +179,7 @@ static func _make_town(maps: Dictionary, t: Dictionary) -> void:
 	var w := TOWN_W
 	var h := TOWN_H
 	var m := Maps.GameMap.new(t.id, w, h, t.ground)
-	m.music = "town"
+	m.music = str(t.get("music", "town"))
 	m.region = ""
 	var rng := RandomNumberGenerator.new()
 	rng.seed = t.seed
@@ -255,7 +255,9 @@ static func _make_town(maps: Dictionary, t: Dictionary) -> void:
 
 
 static func _make_town_interiors(maps: Dictionary, t: Dictionary) -> void:
+	var tune := str(t.get("music", "town"))
 	var inn := World.room(t.id + "_inn", 13, 10, t.id, 7, 11)
+	inn.music = tune
 	inn.rect(2, 3, 2, 2, "b"); inn.rect(5, 3, 2, 2, "b"); inn.rect(8, 3, 2, 2, "b")
 	inn.set_tile(10, 6, "c"); inn.set_tile(11, 6, "c")
 	inn.npcs.append({"x": 10, "y": 5, "look": "shopkeep", "dir": "down",
@@ -263,6 +265,7 @@ static func _make_town_interiors(maps: Dictionary, t: Dictionary) -> void:
 	maps[t.id + "_inn"] = inn
 
 	var shop := World.room(t.id + "_shop", 13, 10, t.id, 22, 11)
+	shop.music = tune
 	shop.rect(3, 5, 7, 1, "c")
 	shop.rect(2, 3, 1, 2, "p"); shop.rect(10, 3, 1, 2, "p")
 	shop.npcs.append({"x": 6, "y": 4, "look": "shopkeep", "dir": "down",
@@ -270,6 +273,7 @@ static func _make_town_interiors(maps: Dictionary, t: Dictionary) -> void:
 	maps[t.id + "_shop"] = shop
 
 	var house := World.room(t.id + "_house", 11, 10, t.id, 7, 22)
+	house.music = tune
 	house.rect(2, 3, 2, 2, "b"); house.set_tile(6, 4, "t"); house.set_tile(8, 6, "p")
 	if t.folk.size() >= 3:
 		var f: Dictionary = t.folk[2]
@@ -292,7 +296,7 @@ static func _make_dungeon(maps: Dictionary, d: Dictionary) -> void:
 		var fw: int = F1_W - i * 4
 		var fh: int = F1_H - i * 4
 		var m := Maps.GameMap.new(id, fw, fh, "X")
-		m.music = "cave"
+		m.music = "cave" if i == 0 else "deep"
 		m.region = d.region
 		m.indoor = true
 
