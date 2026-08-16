@@ -13,6 +13,11 @@ const MOVE_TIME := 0.15
 const MSG_ROWS := 4
 const MSG_PX := 280
 
+## Encounter tuning, kept as named constants so tests/TestEncounters.tscn can
+## measure the real numbers instead of a copy of them.
+const ENCOUNTER_SCALE := 0.38
+const ENCOUNTER_GRACE := 14
+
 var map: Maps.GameMap = null
 var pos := Vector2i(0, 0)
 var target := Vector2i(0, 0)
@@ -39,7 +44,8 @@ func enter(map_id: String, at: Vector2i = Vector2i(-1, -1), dir: String = "down"
 	offset = Vector2.ZERO
 	facing = dir
 	walking = false
-	enc_cool = 6
+	# grace after a fight or a doorway, so you are never jumped twice in a row
+	enc_cool = ENCOUNTER_GRACE
 	Game.tile_pos = pos
 	queue_redraw()
 
@@ -207,7 +213,7 @@ func _check_encounter() -> void:
 	var wgt := Maps.enc_weight(map.get_tile(pos.x, pos.y))
 	if wgt == 0:
 		return
-	if rng.randf() < Data.REGIONS[rid].rate * wgt * 0.55:
+	if rng.randf() < Data.REGIONS[rid].rate * wgt * ENCOUNTER_SCALE:
 		encounter.emit(rid)
 
 

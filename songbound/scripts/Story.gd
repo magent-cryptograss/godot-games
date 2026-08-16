@@ -55,9 +55,11 @@ const WOMAN := [
 ]
 
 const DRIFTER := [
-	"Every fifth level a song settles into you for good. The first one, then five, ten, on up to a hundred if you live that long.",
-	"The levels between only make you harder to knock down. That is not nothing.",
-	"Stay with one element and you will learn all eight of its songs and play them like you were born holding it. Spread yourself across all eight and you will know a little of everything.",
+	"Every level you put into an element, that element comes up one. It is the element that counts, mind, not you.",
+	"The first time you take one up, a song settles in. Then again at its fifth, its tenth, its fifteenth, on up.",
+	"So a body who stays with the one element learns all eight of its songs and plays them like they were born holding it.",
+	"And a body who takes a little of everything gets the first song out of all eight and never the rest.",
+	"The levels in between only make you harder to knock down. That is not nothing.",
 	"Both work. They do not work the same.",
 ]
 

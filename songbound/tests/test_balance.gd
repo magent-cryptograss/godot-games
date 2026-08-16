@@ -162,14 +162,23 @@ func check_progression() -> void:
 	expect(pure.songs.size() == 8, "pure fire finishes the ladder by 40 (got %d)" % pure.songs.size())
 	expect(ph > mh, "specialist out-damages generalist on their element (%d vs %d)" % [ph, mh])
 
-	# song levels land exactly where the design says
-	var song_levels := []
+	# songs are earned on the ELEMENT's level, not the character's
+	var steps := []
 	for l in range(1, 101):
-		if Data.is_song_level(l):
-			song_levels.append(l)
-	expect(song_levels.size() == 21, "21 song levels to 100 (got %d)" % song_levels.size())
-	expect(song_levels[0] == 1 and song_levels[1] == 5 and song_levels[2] == 10, "song levels start 1, 5, 10")
-	expect(not Data.is_song_level(7) and not Data.is_song_level(99), "non-multiples are not song levels")
+		if Data.is_song_step(l):
+			steps.append(l)
+	expect(steps[0] == 1 and steps[1] == 5 and steps[2] == 10, "song steps start 1, 5, 10")
+	expect(not Data.is_song_step(7) and not Data.is_song_step(99), "non-multiples teach nothing")
+	expect(Data.next_song_step(1) == 5 and Data.next_song_step(6) == 10,
+		"next song step is reported correctly")
+	# all eight songs of one element take 35 picks of it
+	expect(Data.song_step_for(7) == 35, "the eighth song sits at element level 35")
+
+	# a character who never touches an element must never learn its songs
+	var narrow := build_player(40, "guitar", "fire", "pure")
+	expect(narrow.songs_of("water") == 0, "an untouched element teaches nothing")
+	# one pick at level 1, then one per level from 2 to 40
+	expect(narrow.affinity.fire == 40, "fire rose once per pick (got %d)" % narrow.affinity.fire)
 
 	# a ladder that is finished starts upgrading instead of erroring
 	var over := build_player(60, "guitar", "fire", "pure")

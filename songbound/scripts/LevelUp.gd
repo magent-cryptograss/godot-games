@@ -103,25 +103,26 @@ func _choose() -> void:
 ## What this pick actually gives, shown before committing to it.
 func preview(c: Dictionary) -> Array[String]:
 	if c.id == "general":
-		return ["ATK +3   DEF +3   MUSIC +3", "Steady growth, no new song."]
-	if not Data.is_song_level(lv):
-		return ["ATK +2   DEF +2",
-			"%s affinity +1 (songs of this element hit harder)." % c.name]
+		return ["ATK +3   DEF +3   MUSIC +3", "Steady growth, and no element rises."]
+	var alv: int = Game.player.affinity.get(c.id, 0) + 1
+	if not Data.is_song_step(alv):
+		return ["ATK +2   DEF +2   %s %d" % [c.name, alv],
+			"Next %s song at %d." % [c.name, Data.next_song_step(alv)]]
 	var idx: int = Game.player.next_song_index(c.id)
 	if idx < 0:
-		return ["ATK +1   DEF +1", "Ladder complete: every %s song grows stronger." % c.name]
-	var s: Dictionary = Data.SONGS[c.id][idx]
-	return ["Learn: %s   (%d breath)" % [s.name, s.cost], Data.describe_song(s)]
+		return ["ATK +1   DEF +1   %s %d" % [c.name, alv],
+			"Every %s song you know grows stronger." % c.name]
+	var sd: Dictionary = Data.SONGS[c.id][idx]
+	return ["Learn: %s   (%d breath)" % [sd.name, sd.cost], Data.describe_song(sd)]
 
 
 func _draw() -> void:
 	UI.menu_bg(self, t)
-	var song_lv := Data.is_song_level(lv)
 	UI.window(self, 8, 6, 304, 34)
 	PixelFont.draw_centered(self, "Level %d" % lv, 160, 12, UI.COL_GOLD, {"outline": UI.COL_INK})
 	PixelFont.draw_centered(self,
-		"A song level. Choose an element to learn its next song." if song_lv else "Choose your growth.",
-		160, 26, UI.COL_GREEN if song_lv else UI.COL_DIM)
+		"Raise an element. Its 1st, 5th, 10th... teaches a song.",
+		160, 26, UI.COL_DIM)
 
 	var cs := cards()
 	for i in cs.size():
@@ -143,13 +144,15 @@ func _draw() -> void:
 			PixelFont.draw(self, c.name, Vector2(x + 34, y + 8),
 				c.col if is_sel else Color("#c0b8d8"), {"outline": UI.COL_INK} if is_sel else {})
 			var known: int = Game.player.songs_of(c.id)
-			PixelFont.draw(self, "%d/%d songs" % [known, Data.SONGS[c.id].size()],
-				Vector2(x + 34, y + 20), Color("#9890b8"))
+			var alv: int = Game.player.affinity.get(c.id, 0)
+			var teaches := Data.is_song_step(alv + 1)
+			PixelFont.draw(self, "lv %d   %d/%d" % [alv, known, Data.SONGS[c.id].size()],
+				Vector2(x + 34, y + 20), UI.COL_GREEN if teaches else Color("#9890b8"))
 			var up: int = Game.player.upgrades.get(c.id, 0)
 			if up > 0:
 				PixelFont.draw(self, "+%d" % up, Vector2(x + 84, y + 20), UI.COL_GREEN)
-			# a green pip marks an element that has a song waiting for you
-			if song_lv and Game.player.next_song_index(c.id) >= 0:
+			# a green pip marks an element that would teach a song right now
+			if teaches:
 				UI.rect(self, x + 88, y + 6, 4, 4, UI.COL_GREEN)
 		else:
 			PixelFont.draw(self, "General", Vector2(x + 10, y + 8),

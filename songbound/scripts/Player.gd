@@ -95,10 +95,8 @@ func song_book() -> Array:
 
 ## kind is "general" or an element id. at_lv is the level being awarded, which
 ## matters when several levels are gained from one fight.
-func apply_level_choice(kind: String, at_lv: int = -1) -> Array[String]:
+func apply_level_choice(kind: String, _at_lv: int = -1) -> Array[String]:
 	var lines: Array[String] = []
-	var lvl := at_lv if at_lv > 0 else lv
-	var song_lv := Data.is_song_level(lvl)
 	var m := mods()
 
 	# automatic growth every level, so the numbers keep pace with the bestiary
@@ -114,23 +112,27 @@ func apply_level_choice(kind: String, at_lv: int = -1) -> Array[String]:
 		grow.mus += 3
 		lines.append("ATK +3   DEF +3   MUSIC +3")
 	else:
-		affinity[kind] = affinity.get(kind, 0) + 1
-		if song_lv:
+		# the element's own level goes up, and ITS milestones teach the songs
+		var alv: int = affinity.get(kind, 0) + 1
+		affinity[kind] = alv
+		var ename: String = Data.element(kind).name
+		if Data.is_song_step(alv):
 			var idx := next_song_index(kind)
 			grow.atk += 1
 			grow.def += 1
 			lines.append("ATK +1   DEF +1")
+			lines.append("%s reached %d" % [ename, alv])
 			if idx >= 0:
 				songs.append({"elem": kind, "idx": idx})
 				lines.append("LEARNED: " + Data.SONGS[kind][idx].name)
 			else:
 				upgrades[kind] = upgrades.get(kind, 0) + 1
-				lines.append("All %s songs grew stronger!" % Data.element(kind).name)
+				lines.append("All %s songs grew stronger!" % ename)
 		else:
 			grow.atk += 2
 			grow.def += 2
 			lines.append("ATK +2   DEF +2")
-			lines.append("%s affinity rose." % Data.element(kind).name)
+			lines.append("%s reached %d  (song at %d)" % [ename, alv, Data.next_song_step(alv)])
 
 	hp = max_hp()
 	br = max_br()

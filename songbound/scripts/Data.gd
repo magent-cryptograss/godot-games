@@ -233,8 +233,8 @@ const REGIONS := {
 	# 4.2 and 5.5 put the win rate at 60% across 40 fights apiece -- the dungeon
 	# was killing the player two times in five, and that was with a soak player
 	# who never stops to heal.
-	"cave":   {"tier": 3.4, "music": "cave",  "bg": "cave",   "rate": 0.085, "mobs": ["sentinel", "gravehound", "discord", "gloomcap", "thunderram"]},
-	"deep":   {"tier": 4.2, "music": "cave",  "bg": "deep",   "rate": 0.090, "mobs": ["discord", "thunderram", "gravehound", "bogwitch", "sentinel"]},
+	"cave":   {"tier": 3.4, "music": "cave",  "bg": "cave",   "rate": 0.062, "mobs": ["sentinel", "gravehound", "discord", "gloomcap", "thunderram"]},
+	"deep":   {"tier": 4.2, "music": "cave",  "bg": "deep",   "rate": 0.066, "mobs": ["discord", "thunderram", "gravehound", "bogwitch", "sentinel"]},
 }
 
 # --------------------------------------------------------- the damage model --
@@ -274,8 +274,22 @@ func song_heal(mus: float, pow_val: float, aff: int) -> int:
 
 # ------------------------------------------------------------- progression --
 
-func is_song_level(lv: int) -> bool:
-	return lv == 1 or lv % 5 == 0
+## Songs are earned per ELEMENT, not per character level. Every time you pick an
+## element its own level goes up by one, and its 1st, 5th, 10th, 15th... pick
+## teaches a song. Investing in one element deeply is what gets you its later
+## songs; spreading across all eight gets you eight first songs and no depth.
+func is_song_step(elem_level: int) -> bool:
+	return elem_level == 1 or elem_level % 5 == 0
+
+## The element level a given song sits at: 1, 5, 10, 15, ...
+func song_step_for(index: int) -> int:
+	return 1 if index == 0 else index * 5
+
+## The next element level that will teach a song, given where you are now.
+func next_song_step(elem_level: int) -> int:
+	if elem_level < 1:
+		return 1
+	return (int(elem_level / 5) + 1) * 5
 
 func xp_to_next(lv: int) -> int:
 	return int(floor(10.0 * pow(float(lv), 1.7) + 15.0 * float(lv)))

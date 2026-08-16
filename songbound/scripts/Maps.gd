@@ -14,7 +14,9 @@ const SOLID := {
 	"#": true, "W": true, "R": true, "V": true, "X": true, "b": true, "c": true,
 	"t": true, "p": true, "g": true, "S": true, "w": true, "m": true,
 }
-const ENC := {".": 1, ",": 3, "\"": 2, "f": 1, "D": 3}
+# How much a tile multiplies the encounter chance. Tall grass and cave floor
+# were at 3, which put caves at a fight every seven steps.
+const ENC := {".": 1, ",": 2, "\"": 1, "f": 1, "D": 2}
 
 static var _atlas := {}
 
