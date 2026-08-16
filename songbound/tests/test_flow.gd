@@ -23,6 +23,32 @@ func _ready() -> void:
 	add_child(main)
 
 
+## An invisible protagonist is the worst thing character creation can produce,
+## and clearing the canvas and pressing done is a legal way to ask for one. The
+## real web build did exactly that: the character walked into town as a bare
+## outline while every NPC around them drew fine.
+func _check_blank_sprite() -> void:
+	var c := preload("res://scenes/Creation.tscn").instantiate()
+	add_child(c)
+	c.set_process(false)
+	c.pname = "Blank"
+	c.preset_idx = 2
+
+	var empty := PackedByteArray()
+	empty.resize(Sprites.W * Sprites.H)
+	c.spr = empty
+	var painted := 0
+	for b in c._usable_sprite():
+		if b != 0:
+			painted += 1
+	_expect(painted > 100, "an empty canvas falls back to a preset (%d pixels drawn)" % painted)
+
+	var drawn: PackedByteArray = Sprites.build(Sprites.PRESETS[0].opts)
+	c.spr = drawn
+	_expect(c._usable_sprite() == drawn, "a drawn sprite is used exactly as drawn")
+	c.queue_free()
+
+
 func _expect(cond: bool, what: String) -> void:
 	if cond:
 		print("  ok   %s" % what)
@@ -49,6 +75,7 @@ func _process(_d: float) -> void:
 			print("")
 			print("== full flow ==")
 			_expect(main.state == main.S.TITLE, "boots to the title")
+			_check_blank_sprite()
 		1: _shot("title")
 		2:
 			# make a character the way creation would, then walk into the world

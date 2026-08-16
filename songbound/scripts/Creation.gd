@@ -323,13 +323,28 @@ func up_element(dt: float) -> void:
 		step = "instrument"
 
 
+## How many painted pixels count as a character rather than an accident. A
+## drawn figure is several hundred; clearing the canvas and pressing done is 0.
+const MIN_PIXELS := 24
+
 func do_finish() -> void:
 	var p := Game.new_game(
 		pname.strip_edges(),
 		Data.INSTRUMENTS[inst_idx].id,
-		spr,
+		_usable_sprite(),
 		Data.ELEMENTS[elem_idx].id)
 	finished.emit(p)
+
+
+## The drawn sprite, or a preset if there is effectively nothing drawn.
+func _usable_sprite() -> PackedByteArray:
+	var painted := 0
+	for b in spr:
+		if b != 0:
+			painted += 1
+	if painted >= MIN_PIXELS:
+		return spr
+	return Sprites.build(Sprites.PRESETS[preset_idx % Sprites.PRESETS.size()].opts)
 
 
 # -------------------------------------------------------------------- draw --
