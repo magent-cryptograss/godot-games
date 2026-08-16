@@ -19,6 +19,13 @@ const PER_REGION := 60
 const SOAK_SEED := 20260816
 
 var plan := [
+	# the opening, level by level. This is where a player forms their opinion of
+	# the whole game and it used to be sampled once, at level 3.
+	{"region": "meadow", "lv": 1},
+	{"region": "meadow", "lv": 2},
+	{"region": "meadow", "lv": 4},
+	{"region": "meadow", "lv": 6},
+	{"region": "wood", "lv": 5},
 	{"region": "meadow", "lv": 3},
 	{"region": "wood", "lv": 10},
 	{"region": "crag", "lv": 20},

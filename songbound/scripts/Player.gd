@@ -9,7 +9,11 @@ var back: PackedByteArray         # derived back view
 
 var lv: int = 1
 var xp: int = 0
-var base := {"hp": 55, "br": 16, "atk": 9, "def": 7, "mus": 9, "spd": 9}
+# 55 starting health meant the opening fight cost more than half of it, which
+# reads as the game being unfair rather than as the game being hard. The gain
+# per level is unchanged, so this flattens the first few levels rather than
+# shifting the whole curve up.
+var base := {"hp": 68, "br": 18, "atk": 9, "def": 8, "mus": 9, "spd": 9}
 var grow := {"hp": 0, "br": 0, "atk": 0, "def": 0, "mus": 0, "spd": 0}
 var hp: int = 0
 var br: int = 0

@@ -251,8 +251,8 @@ const BESTIARY := {
 }
 
 const REGIONS := {
-	"meadow": {"tier": 1.0, "music": "field", "bg": "meadow", "rate": 0.055, "mobs": ["thistle", "mire", "sparkhare", "cinder"]},
-	"wood":   {"tier": 1.8, "music": "field_wood", "bg": "wood",   "rate": 0.065, "mobs": ["thistle", "galecrow", "gloomcap", "bogwitch", "gravehound"]},
+	"meadow": {"tier": 1.05, "music": "field", "bg": "meadow", "rate": 0.055, "mobs": ["thistle", "mire", "sparkhare", "cinder"]},
+	"wood":   {"tier": 1.5, "music": "field_wood", "bg": "wood",   "rate": 0.065, "mobs": ["thistle", "galecrow", "gloomcap", "bogwitch", "gravehound"]},
 	"crag":   {"tier": 3.0, "music": "field_crag", "bg": "crag",   "rate": 0.070, "mobs": ["sentinel", "rime", "thunderram", "galecrow", "discord"]},
 	# 4.2 and 5.5 put the win rate at 60% across 40 fights apiece -- the dungeon
 	# was killing the player two times in five, and that was with a soak player

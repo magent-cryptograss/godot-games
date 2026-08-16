@@ -170,11 +170,16 @@ func _draw_where(px0: float) -> void:
 			Guide.compass(Game.tile_pos, to).capitalize(), steps],
 			Vector2(px0 + 10, 90), UI.COL_GREEN)
 
-	PixelFont.draw(self, "IF YOU WANT IT", Vector2(px0 + 10, 112), Color("#9890b8"))
+	var tune := Tunes.title_of(Audio.current_music())
+	if tune != "":
+		PixelFont.draw(self, "PLAYING", Vector2(px0 + 10, 104), Color("#9890b8"))
+		PixelFont.draw(self, tune, Vector2(px0 + 10, 116), UI.COL_BLUE)
+
+	PixelFont.draw(self, "IF YOU WANT IT", Vector2(px0 + 10, 130), Color("#9890b8"))
 	var side := Guide.side_quests()
 	for i in side.size():
 		var q: Dictionary = side[i]
-		var y := 126 + i * 18
+		var y := 142 + i * 15
 		PixelFont.draw(self, ("x " if q.done else "- ") + str(q.name), Vector2(px0 + 10, y),
 			Color("#6a6480") if q.done else Color("#c0b8d8"))
 		PixelFont.draw(self, "done" if q.done else str(q.prize), Vector2(px0 + 22, y + 9),

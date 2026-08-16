@@ -22,6 +22,31 @@ extends RefCounted
 
 const BEATS_PER_BAR := 4.0
 
+## What each tune is actually called, for the "now playing" line. The keys are
+## places in the game; these are the names of the tunes people know them by.
+const TITLES := {
+	"title": "Wayfaring Stranger",
+	"creation": "Simple Gifts",
+	"town": "Angelina Baker",
+	"town_millbrook": "Arkansas Traveler",
+	"town_longferry": "Shady Grove",
+	"town_highwater": "I'll Twine 'Mid the Ringlets",
+	"town_ashfall": "Bonaparte's Retreat",
+	"town_lastchord": "Cold Frosty Morning",
+	"field": "Soldier's Joy",
+	"field_wood": "June Apple",
+	"field_crag": "The Red Haired Boy",
+	"cave": "Cluck Old Hen",
+	"deep": "Pretty Polly",
+	"battle": "Cripple Creek",
+	"boss": "The Devil's Dream",
+	"victory": "Soldier's Joy",
+	"ending": "Shenandoah",
+}
+
+static func title_of(id: String) -> String:
+	return str(TITLES.get(id, ""))
+
 
 ## "G3:1 A3:.5" -> [[note, beats], ...]
 static func seq(s: String) -> Array:

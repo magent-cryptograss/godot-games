@@ -50,7 +50,13 @@ func begin(region_id: String, boss: String = "", flag: String = "") -> void:
 	if boss != "":
 		enemies.append(Data.make_enemy(boss, 1.0))
 	else:
-		var n := 1 + (1 if rng.randf() < 0.55 else 0) + (1 if rng.randf() < 0.20 else 0)
+		# The group grows with the player. Three enemies at level 1, against 55
+		# health and a single song, is not a fight -- it is a coin toss, and it
+		# was landing badly one time in twelve.
+		var lv: int = Game.player.lv
+		var p_two := 0.55 if lv >= 3 else 0.30
+		var p_three := 0.20 if lv >= 5 else (0.06 if lv >= 3 else 0.0)
+		var n := 1 + (1 if rng.randf() < p_two else 0) + (1 if rng.randf() < p_three else 0)
 		for i in n:
 			var id: String = r.mobs[rng.randi() % r.mobs.size()]
 			enemies.append(Data.make_enemy(id, r.tier * (0.9 + rng.randf() * 0.25)))

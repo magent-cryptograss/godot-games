@@ -33,6 +33,8 @@ var rng := RandomNumberGenerator.new()
 
 var banner := ""                   # place name, shown briefly on arrival
 var banner_t := 0.0
+var playing := ""                  # tune name, shown briefly when it changes
+var playing_t := 0.0
 
 var msg = null                     # {lines, i, tick, npc, on_done}
 var repeat_t := {}
@@ -87,7 +89,13 @@ func update_music() -> void:
 		var rid := map.region_at(pos.x, pos.y)
 		if Data.REGIONS.has(rid):
 			want = str(Data.REGIONS[rid].get("music", want))
+	if want == Audio.current_music():
+		return
 	Audio.play_music(want)
+	var t := Tunes.title_of(want)
+	if t != "":
+		playing = t
+		playing_t = 4.2
 
 
 func say(lines: Array, on_done = null, npc = null) -> void:
@@ -114,6 +122,9 @@ func repeated(action: String, dt: float) -> bool:
 func _process(dt: float) -> void:
 	if banner_t > 0.0:
 		banner_t = maxf(0.0, banner_t - dt)
+		queue_redraw()
+	if playing_t > 0.0:
+		playing_t = maxf(0.0, playing_t - dt)
 		queue_redraw()
 	t += dt
 	if map == null:
@@ -543,6 +554,26 @@ func _draw_hud() -> void:
 		_draw_compass()
 	if banner_t > 0.0:
 		_draw_banner()
+	if playing_t > 0.0 and msg == null:
+		_draw_now_playing()
+
+
+## The name of the tune, bottom left, for a few seconds after it changes. These
+## are real tunes that people still play, and a player who likes one should be
+## able to find out what it is called.
+func _draw_now_playing() -> void:
+	var a: float = clampf(playing_t / 0.8, 0.0, 1.0)
+	var label := "Now playing:  " + playing
+	var w := PixelFont.width(label) + 16
+	var y := UI.SCREEN_H - 20.0
+	UI.rect(self, 6, y, w, 14, Color(0.05, 0.04, 0.09, 0.68 * a))
+	UI.rect(self, 6, y, w, 1, Color(1, 1, 1, 0.13 * a))
+	UI.rect(self, 6, y + 13, w, 1, Color(1, 1, 1, 0.13 * a))
+	# a little note head, since there is no such glyph in the font
+	UI.rect(self, 12, y + 8, 3, 2, Color(UI.COL_GOLD.r, UI.COL_GOLD.g, UI.COL_GOLD.b, a))
+	UI.rect(self, 14, y + 3, 1, 6, Color(UI.COL_GOLD.r, UI.COL_GOLD.g, UI.COL_GOLD.b, a))
+	PixelFont.draw(self, label, Vector2(20, y + 4),
+		Color(0.85, 0.82, 0.92, a))
 
 
 ## A pointer to wherever the story is asking you to go, only on the overworld,
