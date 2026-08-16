@@ -1,7 +1,10 @@
 # The map editor
 
-Open the Godot project, select `scenes/MapEditor.tscn`, and press **F6** (run
-current scene). Or set it as the main scene while you work.
+**Pick "Map Editor" on the title screen.** It works in the browser build too --
+opening a scene in Godot is no use to somebody playing at a URL. `ESC` leaves
+it and goes back to the title.
+
+(If you are in Godot anyway, `scenes/MapEditor.tscn` with **F6** still works.)
 
 ## Where your maps go
 
@@ -73,6 +76,13 @@ Markers on the map: `@` start, `N` npc, `S` sign, `C` chest, `W` warp, `B` boss.
 |---|---|
 | `S` | save this map (the path is printed and shown on screen) |
 | `R` | reload this map from disk, discarding changes |
+| `C` | copy the map's JSON to the clipboard |
+| `ESC` | back to the title |
+
+`C` matters in the browser build. There, `res://` is read-only and `user://`
+lives inside IndexedDB where you cannot get at it, so the clipboard is the only
+way a map you drew in a browser gets back out to a file. Draw it, press `C`,
+paste it into `maps/<name>.json` in the project.
 
 ## Notes worth knowing
 

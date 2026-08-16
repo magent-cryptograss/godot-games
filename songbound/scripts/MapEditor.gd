@@ -1,6 +1,9 @@
 extends Node2D
 ## A map editor you can actually use.
 ##
+## Reachable from the title screen, so it works in the web build too -- opening
+## a scene in the Godot editor is no use to somebody playing in a browser.
+##
 ## Paint tiles, place NPCs, chests, warps, the boss and the player start, then
 ## save. Saved maps live in user://maps/*.json and override the generated ones
 ## at load, so you can redraw one corner of the game without touching code.
@@ -12,6 +15,8 @@ const VIEW_H := 216
 const PAL_X := 253
 const PAL_Y := 22
 const PAL_CELL := 17
+
+signal closed
 
 const TILE_ORDER := [
 	".", ",", "\"", "f", "=", "o", "q", "B",
@@ -146,6 +151,13 @@ func _unhandled_input(event: InputEvent) -> void:
 				push_undo()
 				_flood(c, brush)
 				_say("filled")
+		KEY_ESCAPE:
+			closed.emit()
+		KEY_C:
+			# In a browser, res:// is read-only and user:// is buried in
+			# IndexedDB, so the clipboard is the only way a map gets out.
+			DisplayServer.clipboard_set(JSON.stringify(MapIO.to_dict(map), "\t"))
+			_say("map JSON copied to clipboard")
 		KEY_S:
 			var res: Array = MapIO.save(map)
 			var p: String = res[0]
@@ -405,9 +417,9 @@ func _draw_bars() -> void:
 
 	UI.rect(self, 0, UI.SCREEN_H - 11, UI.SCREEN_W, 11, Color("#241c34"))
 	# 320px at 6px a glyph is 53 characters before it runs off the edge
-	var hint := "[ ] map  -+ zoom  TAB mode  F fill  U undo  S save"
+	var hint := "[ ]map -+zoom TAB mode F fill U undo S save C copy"
 	if mode == "objects":
-		hint = "1start 2npc 3chest 4warp 5boss  ,. cycle  DEL  S save"
+		hint = "1start 2npc 3chest 4warp 5boss ,.cycle DEL S save ESC"
 	PixelFont.draw(self, hint, Vector2(3, UI.SCREEN_H - 9), UI.COL_DIM)
 
 	if status_t < 4.0:

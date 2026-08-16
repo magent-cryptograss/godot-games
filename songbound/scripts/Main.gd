@@ -2,7 +2,7 @@ extends Node2D
 ## Scene routing. Title and the ending crawl are drawn here; everything else is
 ## a child scene swapped in and out.
 
-enum S { TITLE, CREATION, FIELD, BATTLE, LEVELUP, SHOP, ENDING }
+enum S { TITLE, CREATION, FIELD, BATTLE, LEVELUP, SHOP, ENDING, MAPEDIT }
 
 var state: int = S.TITLE
 var current: Node = null
@@ -25,6 +25,7 @@ const FIELD := preload("res://scenes/Field.tscn")
 const BATTLE := preload("res://scenes/Battle.tscn")
 const LEVELUP := preload("res://scenes/LevelUp.tscn")
 const MENU := preload("res://scenes/Menu.tscn")
+const MAPEDIT := preload("res://scenes/MapEditor.tscn")
 
 var menu: Node2D = null
 
@@ -155,6 +156,15 @@ func _close_menu() -> void:
 		current.set_process(true)
 
 
+func _close_editor() -> void:
+	_clear()
+	state = S.TITLE
+	title_sel = 0
+	# maps may have changed underneath the generated world
+	World.maps.clear()
+	Audio.play_music("title")
+
+
 func _on_shop(list: Array) -> void:
 	shop_list = list
 	shop_sel = 0
@@ -240,8 +250,16 @@ func _process(dt: float) -> void:
 	queue_redraw()
 
 
+func title_options() -> Array:
+	var o := ["Continue", "New Game"] if Game.has_save() else ["New Game"]
+	o.append("Map Editor")
+	if Game.has_save():
+		o.append("Erase Save")
+	return o
+
+
 func _up_title(dt: float) -> void:
-	var opts := 3 if Game.has_save() else 1
+	var opts := title_options().size()
 	if repeated("move_up", dt): title_sel = wrapi(title_sel - 1, 0, opts)
 	if repeated("move_down", dt): title_sel = wrapi(title_sel + 1, 0, opts)
 	for i in opts:
@@ -257,8 +275,13 @@ func _up_title(dt: float) -> void:
 
 func _title_pick() -> void:
 	Audio.sfx("confirm")
-	var opts := ["Continue", "New Game", "Erase Save"] if Game.has_save() else ["New Game"]
+	var opts := title_options()
 	match opts[title_sel]:
+		"Map Editor":
+			state = S.MAPEDIT
+			var ed := _swap(MAPEDIT)
+			ed.closed.connect(_close_editor)
+			return
 		"Continue":
 			if Game.load_game():
 				fade_to(func() -> void: _enter_field(Game.map_id, Game.tile_pos))
@@ -327,7 +350,7 @@ func _draw_title() -> void:
 	_draw_big_title(Story.TITLE, 160, 52 + sin(t * 0.9) * 2)
 	PixelFont.draw_centered(self, Story.SUBTITLE, 160, 92, Color("#8878b0"))
 
-	var opts := ["Continue", "New Game", "Erase Save"] if Game.has_save() else ["New Game"]
+	var opts := title_options()
 	for i in opts.size():
 		var y := 140 + i * 22
 		var sel := i == title_sel
