@@ -306,7 +306,9 @@ func _draw() -> void:
 				UI.sprite(self, p.back if facing == "up" else p.spr,
 					px, py, 1, facing == "left", walking, frame)
 
-	if map.indoor:
+	if _is_cave():
+		_draw_cave_light(cam)
+	elif map.indoor:
 		for i in 26:
 			var a := (1.0 - float(i) / 26.0) * 0.5
 			UI.rect(self, 0, i, UI.SCREEN_W, 1, Color(0, 0, 0, a))
@@ -355,6 +357,70 @@ func _draw_water(cam: Vector2) -> void:
 			if map.get_tile(tx, ty - 1) != "~":
 				var pulse: float = 0.25 + 0.2 * sin(t * 2.2 + tx * 0.7)
 				UI.rect(self, sx, sy, TS, 1, Color(1, 1, 1, pulse))
+
+
+func _is_cave() -> bool:
+	return map != null and (map.region == "cave" or map.region == "deep")
+
+
+## Darkness with holes cut in it. Light comes from whatever you are carrying and
+## from the lit patches the map places, so a cave is a series of pools with dark
+## between them rather than a uniformly dim room.
+const LIGHT_CELL := 8
+
+func _draw_cave_light(cam: Vector2) -> void:
+	# gather what is giving off light: the player, plus any lit floor in view
+	var lights: Array = []
+	var flicker: float = 1.0 + sin(t * 7.3) * 0.035 + sin(t * 3.1) * 0.02
+	lights.append({
+		"x": pos.x * TS + offset.x - cam.x + TS * 0.5,
+		"y": pos.y * TS + offset.y - cam.y + TS * 0.5,
+		"r": 92.0 * flicker,
+	})
+	var x0 := int(cam.x / TS) - 1
+	var y0 := int(cam.y / TS) - 1
+	for ty in range(maxi(0, y0), mini(map.h, y0 + int(UI.SCREEN_H / TS) + 3)):
+		for tx in range(maxi(0, x0), mini(map.w, x0 + int(UI.SCREEN_W / TS) + 3)):
+			if map.get_tile(tx, ty) != "*":
+				continue
+			lights.append({
+				"x": tx * TS - cam.x + TS * 0.5,
+				"y": ty * TS - cam.y + TS * 0.5,
+				"r": 58.0 + sin(t * 2.0 + tx) * 4.0,
+			})
+	# the boss is worth seeing coming
+	if map.boss != null and not Game.player.flags.get("boss_" + map.boss.flag, false):
+		lights.append({
+			"x": map.boss.x * TS - cam.x + TS * 0.5,
+			"y": map.boss.y * TS - cam.y + TS * 0.5,
+			"r": 60.0 + sin(t * 1.4) * 6.0,
+		})
+
+	# 0.88 was atmospheric and unplayable -- you could not see far enough to
+	# navigate. Enough ambient light to read the walls, dark enough to feel it.
+	var dark := 0.66
+	var cells_x := int(UI.SCREEN_W / LIGHT_CELL) + 1
+	var cells_y := int(UI.SCREEN_H / LIGHT_CELL) + 1
+	for cy in cells_y:
+		for cx in cells_x:
+			var px := cx * LIGHT_CELL + LIGHT_CELL * 0.5
+			var py := cy * LIGHT_CELL + LIGHT_CELL * 0.5
+			var best := 1.0
+			for l in lights:
+				var dx: float = px - l.x
+				var dy: float = py - l.y
+				# squashed vertically: the pool reads as light on a floor
+				var d := sqrt(dx * dx + dy * dy * 1.7)
+				var inner: float = l.r * 0.5
+				var f: float = clampf((d - inner) / maxf(1.0, l.r - inner), 0.0, 1.0)
+				if f < best:
+					best = f
+			if best <= 0.0:
+				continue
+			# quantise so the falloff steps rather than smears
+			var a: float = round(best * 6.0) / 6.0 * dark
+			UI.rect(self, cx * LIGHT_CELL, cy * LIGHT_CELL, LIGHT_CELL, LIGHT_CELL,
+				Color(0.02, 0.01, 0.05, a))
 
 
 func _draw_chest(x: float, y: float, opened: bool) -> void:
