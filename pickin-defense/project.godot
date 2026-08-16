@@ -9,8 +9,8 @@ config/features=PackedStringArray("4.6", "GL Compatibility")
 
 [display]
 
-window/size/viewport_width=900
-window/size/viewport_height=600
+window/size/viewport_width=1800
+window/size/viewport_height=1200
 window/stretch/mode="canvas_items"
 
 [input]

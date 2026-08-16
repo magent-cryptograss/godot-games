@@ -1,0 +1,351 @@
+extends Node2D
+## Walking around: map rendering, grid movement, NPCs, chests, warps, dialogue
+## and random encounters.
+
+signal encounter(region: String)
+signal boss_encounter(id: String, flag: String)
+signal open_shop(list: Array)
+signal open_inn(price: int)
+signal open_menu
+
+const TS := 16
+const MOVE_TIME := 0.15
+const MSG_ROWS := 4
+const MSG_PX := 280
+
+var map: Maps.GameMap = null
+var pos := Vector2i(0, 0)
+var target := Vector2i(0, 0)
+var offset := Vector2.ZERO
+var facing := "down"
+var walking := false
+var move_t := 0.0
+var frame := 0
+var steps := 0
+var enc_cool := 8
+var t := 0.0
+var rng := RandomNumberGenerator.new()
+
+var msg = null                     # {lines, i, tick, npc, on_done}
+var repeat_t := {}
+var _was_ok := false
+
+
+func enter(map_id: String, at: Vector2i = Vector2i(-1, -1), dir: String = "down") -> void:
+	map = World.build_all()[map_id]
+	Game.map_id = map_id
+	pos = at if at.x >= 0 else map.start
+	target = pos
+	offset = Vector2.ZERO
+	facing = dir
+	walking = false
+	enc_cool = 6
+	Game.tile_pos = pos
+	queue_redraw()
+
+
+func say(lines: Array, on_done = null, npc = null) -> void:
+	msg = {
+		"lines": PixelFont.paginate(lines, MSG_PX, MSG_ROWS),
+		"i": 0, "tick": 0.0, "npc": npc, "on_done": on_done,
+	}
+
+
+func repeated(action: String, dt: float) -> bool:
+	if Input.is_action_just_pressed(action):
+		repeat_t[action] = 0.0
+		return true
+	if Input.is_action_pressed(action):
+		repeat_t[action] = repeat_t.get(action, 0.0) + dt
+		if repeat_t[action] > 0.28:
+			repeat_t[action] -= 0.11
+			return true
+	else:
+		repeat_t[action] = 0.0
+	return false
+
+
+func _process(dt: float) -> void:
+	t += dt
+	if map == null:
+		return
+	if msg != null:
+		_update_msg(dt)
+		queue_redraw()
+		return
+
+	if Input.is_action_just_pressed("ui_menu"):
+		open_menu.emit()
+		return
+
+	if not walking:
+		var nd := ""
+		for d in ["up", "down", "left", "right"]:
+			if Input.is_action_pressed("move_" + d):
+				nd = d
+				break
+		# A quick tap can have its press and release land between two frames, so
+		# fall back to the just_pressed edge and still move one tile.
+		if nd == "":
+			for d in ["up", "down", "left", "right"]:
+				if Input.is_action_just_pressed("move_" + d):
+					nd = d
+					break
+		if nd != "":
+			facing = nd
+			var f := _facing_tile()
+			var wp = map.warp_at(f.x, f.y)
+			if map.can_walk(f.x, f.y, Game.player.flags) or wp != null:
+				walking = true
+				move_t = 0.0
+				target = f
+		if Input.is_action_just_pressed("ui_ok"):
+			if not _interact():
+				_try_warp(map.warp_at(pos.x, pos.y))
+
+	if walking:
+		move_t += dt
+		var f := clampf(move_t / MOVE_TIME, 0.0, 1.0)
+		offset = Vector2(target - pos) * f * TS
+		frame = int(move_t / (MOVE_TIME / 4.0)) % 4
+		if f >= 1.0:
+			pos = target
+			offset = Vector2.ZERO
+			walking = false
+			steps += 1
+			Game.steps += 1
+			Game.tile_pos = pos
+			var wp = map.warp_at(pos.x, pos.y)
+			if wp != null:
+				_try_warp(wp)
+				return
+			_check_boss()
+			if msg == null:
+				_check_encounter()
+	else:
+		frame = 0
+
+	for n in map.npcs:
+		if not n.get("wander", false):
+			continue
+		n["wt"] = n.get("wt", 0.0) + dt
+		if n.wt > 2.2:
+			n["wt"] = 0.0
+			n["dir"] = ["up", "down", "left", "right"][rng.randi() % 4]
+	queue_redraw()
+
+
+func _facing_tile() -> Vector2i:
+	match facing:
+		"left": return pos + Vector2i(-1, 0)
+		"right": return pos + Vector2i(1, 0)
+		"up": return pos + Vector2i(0, -1)
+		_: return pos + Vector2i(0, 1)
+
+
+func _opposite(d: String) -> String:
+	match d:
+		"up": return "down"
+		"down": return "up"
+		"left": return "right"
+		_: return "left"
+
+
+func _interact() -> bool:
+	var f := _facing_tile()
+	for n in map.npcs:
+		if n.x == f.x and n.y == f.y:
+			if not n.get("sign", false) and n.has("dir"):
+				n["dir"] = _opposite(facing)
+			# NPCs placed in the map editor carry a key, not the words themselves
+			var lines: Array = n.get("lines", [])
+			if lines.is_empty() and n.has("lines_key"):
+				lines = Story.lines_for(str(n.lines_key))
+			say(lines, null, n)
+			return true
+	for c in map.chests:
+		if c.x == f.x and c.y == f.y and not Game.player.flags.get("chest_" + c.id, false):
+			Game.player.flags["chest_" + c.id] = true
+			Game.player.items[c.item] = Game.player.items.get(c.item, 0) + 1
+			say(["You found " + Data.item_name(c.item) + "."])
+			return true
+	match map.get_tile(f.x, f.y):
+		"w": say(Story.WELL); return true
+		"g": say(Story.GRAVE); return true
+		"b": say(Story.BED); return true
+	return false
+
+
+func _try_warp(wp) -> bool:
+	if wp == null:
+		return false
+	if wp.has("need_flag") and not Game.player.flags.get(wp.need_flag, false):
+		say([wp.blocked])
+		return true
+	enter(wp.to, Vector2i(wp.tx, wp.ty), facing)
+	return true
+
+
+func _check_boss() -> void:
+	if map.boss == null:
+		return
+	if Game.player.flags.get("boss_" + map.boss.flag, false):
+		return
+	var d := absi(map.boss.x - pos.x) + absi(map.boss.y - pos.y)
+	if d <= 1:
+		var b = map.boss
+		say(b.intro, func() -> void: boss_encounter.emit(b.id, b.flag))
+
+
+func _check_encounter() -> void:
+	var rid := map.region_at(pos.x, pos.y)
+	if rid == "" or not Data.REGIONS.has(rid):
+		return
+	if enc_cool > 0:
+		enc_cool -= 1
+		return
+	var wgt := Maps.enc_weight(map.get_tile(pos.x, pos.y))
+	if wgt == 0:
+		return
+	if rng.randf() < Data.REGIONS[rid].rate * wgt * 0.55:
+		encounter.emit(rid)
+
+
+# ---------------------------------------------------------------- message --
+
+func _update_msg(dt: float) -> void:
+	msg.tick += dt
+	var full: String = msg.lines[msg.i]
+	var shown := int(msg.tick / 0.014)
+	var ok := Input.is_action_just_pressed("ui_ok")
+	if ok:
+		if shown < full.length():
+			msg.tick = full.length() * 0.014 + 0.01
+		else:
+			msg.i += 1
+			msg.tick = 0.0
+			if msg.i >= msg.lines.size():
+				var m = msg
+				msg = null
+				if m.on_done != null:
+					m.on_done.call()
+				elif m.npc != null and m.npc.has("shop"):
+					open_shop.emit(m.npc.shop)
+				elif m.npc != null and m.npc.has("inn"):
+					open_inn.emit(m.npc.inn)
+
+
+# ------------------------------------------------------------------- draw --
+
+func camera() -> Vector2:
+	var p := Vector2(pos) * TS + offset
+	var cx := p.x + TS / 2.0 - UI.SCREEN_W / 2.0
+	var cy := p.y + TS / 2.0 - UI.SCREEN_H / 2.0
+	if map.w * TS <= UI.SCREEN_W:
+		cx = (map.w * TS - UI.SCREEN_W) / 2.0
+	else:
+		cx = clampf(cx, 0, map.w * TS - UI.SCREEN_W)
+	if map.h * TS <= UI.SCREEN_H:
+		cy = (map.h * TS - UI.SCREEN_H) / 2.0
+	else:
+		cy = clampf(cy, 0, map.h * TS - UI.SCREEN_H)
+	return Vector2(round(cx), round(cy))
+
+
+func _draw() -> void:
+	if map == null:
+		return
+	var cam := camera()
+	draw_rect(Rect2(0, 0, UI.SCREEN_W, UI.SCREEN_H), Color.BLACK, true)
+	if map.texture != null:
+		draw_texture_rect_region(map.texture,
+			Rect2(0, 0, UI.SCREEN_W, UI.SCREEN_H),
+			Rect2(cam.x, cam.y, UI.SCREEN_W, UI.SCREEN_H))
+
+	for c in map.chests:
+		var sx: float = c.x * TS - cam.x
+		var sy: float = c.y * TS - cam.y
+		if sx < -TS or sy < -TS or sx > UI.SCREEN_W or sy > UI.SCREEN_H:
+			continue
+		_draw_chest(sx, sy, Game.player.flags.get("chest_" + c.id, false))
+
+	# depth-sort everything that stands up, so sprites overlap correctly
+	var list := []
+	for n in map.npcs:
+		if n.get("sign", false):
+			continue
+		list.append({"y": n.y, "kind": "npc", "ref": n})
+	if map.boss != null and not Game.player.flags.get("boss_" + map.boss.flag, false):
+		list.append({"y": map.boss.y, "kind": "boss", "ref": map.boss})
+	list.append({"y": pos.y, "kind": "player", "ref": null})
+	list.sort_custom(func(a, b): return a.y < b.y)
+	for item in list:
+		match item.kind:
+			"npc":
+				var n = item.ref
+				var g := Sprites.build(Sprites.NPC_LOOKS.get(n.get("look", "woman"), Sprites.NPC_LOOKS.woman))
+				var d: String = n.get("dir", "down")
+				UI.sprite(self, Sprites.back_view(g) if d == "up" else g,
+					n.x * TS - cam.x, n.y * TS - cam.y - 8, 1, d == "left")
+			"boss":
+				var b = item.ref
+				Bestiary.draw_art(self, Data.BESTIARY[b.id].art,
+					b.x * TS - cam.x - 14, b.y * TS - cam.y - 22, t)
+			"player":
+				var p := Game.player
+				var px := pos.x * TS + offset.x - cam.x
+				var py := pos.y * TS + offset.y - cam.y - 8
+				UI.shadow(self, px + 8, py + 23, 5, 2)
+				UI.sprite(self, p.back if facing == "up" else p.spr,
+					px, py, 1, facing == "left", walking, frame)
+
+	if map.indoor:
+		for i in 26:
+			var a := (1.0 - float(i) / 26.0) * 0.5
+			UI.rect(self, 0, i, UI.SCREEN_W, 1, Color(0, 0, 0, a))
+			UI.rect(self, 0, UI.SCREEN_H - 1 - i, UI.SCREEN_W, 1, Color(0, 0, 0, a))
+
+	_draw_hud()
+	if msg != null:
+		_draw_msg()
+
+
+func _draw_chest(x: float, y: float, opened: bool) -> void:
+	if opened:
+		UI.rect(self, x + 3, y + 9, 10, 5, Color("#5a3a1e"))
+		UI.rect(self, x + 3, y + 9, 10, 1, Color("#8a6440"))
+		UI.rect(self, x + 2, y + 4, 12, 4, Color("#7a5228"))
+		UI.rect(self, x + 2, y + 4, 12, 1, Color("#a87a48"))
+	else:
+		UI.rect(self, x + 2, y + 6, 12, 8, Color("#7a5228"))
+		UI.rect(self, x + 2, y + 6, 12, 3, Color("#a87a48"))
+		UI.rect(self, x + 2, y + 9, 12, 1, Color("#5a3a1e"))
+		UI.rect(self, x + 7, y + 9, 2, 3, Color("#f0d040"))
+
+
+func _draw_hud() -> void:
+	var p := Game.player
+	UI.window(self, 4, 4, 96, 30, {"alpha": 0.8})
+	PixelFont.draw(self, p.name, Vector2(10, 8))
+	PixelFont.draw_right(self, "Lv%d" % p.lv, 96, 8, UI.COL_GOLD)
+	UI.bar(self, 10, 18, 50, 4, float(p.hp) / float(p.max_hp()))
+	PixelFont.draw(self, "%d/%d" % [p.hp, p.max_hp()], Vector2(64, 16), Color("#c8c0dc"))
+	UI.bar(self, 10, 25, 50, 3, float(p.br) / float(p.max_br()), Color("#78b8f0"), Color("#2a5a9c"))
+
+
+func _draw_msg() -> void:
+	var bx := 8.0
+	var by := UI.SCREEN_H - 66.0
+	var bw := UI.SCREEN_W - 16.0
+	var bh := 58.0
+	UI.window(self, bx, by, bw, bh)
+	var full: String = msg.lines[msg.i]
+	var shown := full.substr(0, int(msg.tick / 0.014))
+	var lines := PixelFont.wrap_text(shown, MSG_PX)
+	for i in mini(lines.size(), MSG_ROWS):
+		PixelFont.draw(self, lines[i], Vector2(bx + 12, by + 12 + i * 12))
+	if int(msg.tick / 0.014) >= full.length():
+		var bob := 0 if sin(t * 8.0) > 0.0 else 1
+		UI.rect(self, bx + bw - 16, by + bh - 12 + bob, 5, 3, UI.COL_GOLD)
+		UI.rect(self, bx + bw - 15, by + bh - 9 + bob, 3, 2, UI.COL_GOLD)
+		UI.rect(self, bx + bw - 14, by + bh - 7 + bob, 1, 1, UI.COL_GOLD)

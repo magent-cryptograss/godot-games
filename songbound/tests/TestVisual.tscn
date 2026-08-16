@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://ctestvisual001"]
+
+[ext_resource type="Script" path="res://tests/test_visual.gd" id="1_vis"]
+
+[node name="TestVisual" type="Node2D"]
+script = ExtResource("1_vis")
