@@ -14,11 +14,13 @@ const KB_ROWS := [
 	"0123456789 -'",
 ]
 
-const ED_GX := 12
-const ED_GY := 34
-const ED_CELL := 6
-const PAL_X := 122
-const PAL_Y := 34
+const ED_GX := 8
+const ED_GY := 26
+# 5px cells on a 24x32 grid: finer pixels than the old 6px on 16x24, and the
+# drawing area stays about the same size on screen
+const ED_CELL := 5
+const PAL_X := 136
+const PAL_Y := 30
 const PAL_CELL := 11
 
 var step := "name"
@@ -403,7 +405,7 @@ func draw_gallery() -> void:
 		var sel := i == preset_idx
 		UI.window(self, x, y, 64, 66,
 			{"top": Color("#4a3a80"), "bot": Color("#241a48")} if sel else {"alpha": 0.7})
-		draw_sprite_grid(Sprites.build(Sprites.PRESETS[i].opts), x + 16, y + 6, 2)
+		draw_sprite_grid(Sprites.build(Sprites.PRESETS[i].opts), x + 8, y + 2, 2)
 		PixelFont.draw_centered(self, Sprites.PRESETS[i].name, x + 32, y + 56,
 			UI.COL_GOLD if sel else Color("#a8a0c0"))
 	PixelFont.draw_centered(self, "Z to take this one    C to open it in the editor", 160, 208, UI.COL_DIM)
@@ -424,8 +426,8 @@ func draw_editor() -> void:
 			var c: Color = Sprites.PALETTE[v] if v != 0 else (Color("#2a2448") if (x + y) % 2 == 1 else Color("#332a54"))
 			UI.rect(self, ED_GX + x * ED_CELL, ED_GY + y * ED_CELL, ED_CELL, ED_CELL, c)
 	# guides at the centre line and the waist
-	UI.rect(self, ED_GX + 8 * ED_CELL, ED_GY, 1, gh, Color(0.66, 0.88, 0.97, 0.25))
-	UI.rect(self, ED_GX, ED_GY + 17 * ED_CELL, gw, 1, Color(0.66, 0.88, 0.97, 0.25))
+	UI.rect(self, ED_GX + 12 * ED_CELL, ED_GY, 1, gh, Color(0.66, 0.88, 0.97, 0.25))
+	UI.rect(self, ED_GX, ED_GY + 26 * ED_CELL, gw, 1, Color(0.66, 0.88, 0.97, 0.25))
 	# cursor
 	var cxp := ED_GX + cx * ED_CELL
 	var cyp := ED_GY + cy * ED_CELL
@@ -460,12 +462,12 @@ func draw_editor() -> void:
 	PixelFont.draw(self, ("colour %d" % colour) if colour != 0 else "eraser",
 		Vector2(PAL_X + 21, PAL_Y + 55), Color("#d0c8e0"))
 
-	UI.window(self, 228, 30, 84, 96, {"alpha": 0.8})
-	PixelFont.draw_centered(self, "preview", 270, 36, Color("#9890b8"))
+	UI.window(self, 240, 26, 76, 104, {"alpha": 0.8})
+	PixelFont.draw_centered(self, "preview", 278, 30, Color("#9890b8"))
 	var dirs := ["down", "left", "up", "right"]
 	var d: String = dirs[int(t / 1.1) % 4]
-	draw_sprite_grid(Sprites.back_view(spr) if d == "up" else spr, 254, 48, 2, d == "left")
-	PixelFont.draw_centered(self, d, 270, 112, UI.COL_FAINT)
+	draw_sprite_grid(Sprites.back_view(spr) if d == "up" else spr, 254, 42, 2, d == "left")
+	PixelFont.draw_centered(self, d, 278, 118, UI.COL_FAINT)
 
 	UI.window(self, 8, 186, 214, 48, {"alpha": 0.82})
 	PixelFont.draw(self, "move: arrows   paint: Z   erase: X", Vector2(16, 192), Color("#c8c0dc"))

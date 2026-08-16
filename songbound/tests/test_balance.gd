@@ -192,7 +192,7 @@ func check_sprites() -> void:
 	for i in s.size():
 		if s[i] != 0:
 			lit += 1
-	expect(s.size() == Sprites.W * Sprites.H, "sprite grid is 16x24")
+	expect(s.size() == Sprites.W * Sprites.H, "sprite grid is %dx%d" % [Sprites.W, Sprites.H])
 	expect(lit > 100, "preset sprite has %d filled pixels" % lit)
 	var b := Sprites.back_view(s)
 	expect(b.size() == s.size(), "back view same size")
@@ -202,7 +202,7 @@ func check_sprites() -> void:
 			diff += 1
 	expect(diff > 0, "back view differs from front (%d px)" % diff)
 	var img := Sprites.to_image(s)
-	expect(img != null and img.get_width() == 16, "sprite renders to an image")
+	expect(img != null and img.get_width() == Sprites.W, "sprite renders to an image")
 	var outline := Sprites.build({"outlineOnly": true})
 	var o_lit := 0
 	for i in outline.size():

@@ -135,8 +135,8 @@ func _draw() -> void:
 
 func _draw_status(px0: float, p: Player) -> void:
 	UI.window(self, px0, 30, 218, 196)
-	UI.sprite(self, p.spr, px0 + 14, 42, 2, false, true, int(t * 5.0))
-	PixelFont.draw(self, p.name, Vector2(px0 + 66, 42), UI.COL_TEXT, {"outline": UI.COL_INK})
+	UI.sprite(self, p.spr, px0 + 8, 40, 2, false, true, int(t * 5.0))
+	PixelFont.draw(self, p.name, Vector2(px0 + 66, 44), UI.COL_TEXT, {"outline": UI.COL_INK})
 	PixelFont.draw(self, "Level %d" % p.lv, Vector2(px0 + 66, 56), UI.COL_GOLD)
 	PixelFont.draw(self, Data.instrument(p.inst).name, Vector2(px0 + 66, 68), Color("#c0b8d8"))
 

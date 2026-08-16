@@ -293,16 +293,18 @@ func _draw() -> void:
 				var g := Sprites.build(Sprites.NPC_LOOKS.get(n.get("look", "woman"), Sprites.NPC_LOOKS.woman))
 				var d: String = n.get("dir", "down")
 				UI.sprite(self, Sprites.back_view(g) if d == "up" else g,
-					n.x * TS - cam.x, n.y * TS - cam.y - 8, 1, d == "left")
+					n.x * TS - cam.x - 4, n.y * TS - cam.y - 16, 1, d == "left")
 			"boss":
 				var b = item.ref
 				Bestiary.draw_art(self, Data.BESTIARY[b.id].art,
 					b.x * TS - cam.x - 14, b.y * TS - cam.y - 22, t)
 			"player":
 				var p := Game.player
-				var px := pos.x * TS + offset.x - cam.x
-				var py := pos.y * TS + offset.y - cam.y - 8
-				UI.shadow(self, px + 8, py + 23, 5, 2)
+				# a 24x32 sprite overhangs a 16px tile: half a tile each side,
+				# and a full tile above, so the feet still sit on the tile
+				var px := pos.x * TS + offset.x - cam.x - 4
+				var py := pos.y * TS + offset.y - cam.y - 16
+				UI.shadow(self, px + 12, py + 31, 7, 2)
 				UI.sprite(self, p.back if facing == "up" else p.spr,
 					px, py, 1, facing == "left", walking, frame)
 

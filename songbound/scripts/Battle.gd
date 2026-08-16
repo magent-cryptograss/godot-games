@@ -776,9 +776,9 @@ func _draw_player() -> void:
 	var pxo := (rng.randf() * 2.0 - 1.0) * 2.0 if p_shake > 0.0 else 0.0
 	# clear of the command window at y162 -- a 16x24 sprite at 2x is 48 tall,
 	# so anything below about y110 ends up behind the menu
-	var psx := 52.0 + pxo
-	var psy := 104.0 + sin(t * 2.4) * 1.0
-	UI.shadow(self, psx + 16, psy + 48, 14, 4)
+	var psx := 44.0 + pxo
+	var psy := 92.0 + sin(t * 2.4) * 1.0
+	UI.shadow(self, psx + 24, psy + 64, 18, 4)
 	UI.sprite(self, Game.player.spr, psx, psy, 2, false, true, int(t * 5.0))
 	if p_flash > 0.0:
 		UI.sprite(self, Game.player.spr, psx, psy, 2, false, false, 0,

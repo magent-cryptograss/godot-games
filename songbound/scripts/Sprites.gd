@@ -1,11 +1,11 @@
 class_name Sprites
 extends RefCounted
-## Player sprites are a 16x24 grid of palette indices, index 0 transparent.
+## Player sprites are a 24x32 grid of palette indices, index 0 transparent.
 ## The same format is used by the editor, the presets and the field renderer,
 ## so anything you can draw, the game can animate.
 
-const W := 16
-const H := 24
+const W := 24
+const H := 32
 
 const PALETTE := [
 	Color(0, 0, 0, 0),                                                    # 0 transparent
@@ -107,8 +107,12 @@ static func set_px(g: PackedByteArray, x: int, y: int, v: int) -> void:
 		g[y * W + x] = v
 
 
-## Procedural builder, shared by the eight presets, the NPCs and the editor's
-## starting templates, so "draw your own" and "pick one" share a look.
+## Procedural sprite builder. Used for the eight presets, the NPCs and the
+## editor's starting templates, so "draw your own" and "pick one" share a look.
+##
+## Proportions follow the 16-bit JRPG convention rather than realism: the head
+## is nearly a third of the figure, because at this size a realistic head is
+## four pixels wide and cannot hold a face.
 static func build(o: Dictionary) -> PackedByteArray:
 	var s := blank()
 	const OUT := 1
@@ -120,51 +124,83 @@ static func build(o: Dictionary) -> PackedByteArray:
 	var pants: int = o.get("pants", 2)
 	var shoe: int = o.get("shoe", 1)
 	var outline_only: bool = o.get("outlineOnly", false)
+	var long_hair: bool = o.get("hairLong", false)
+	var style: String = o.get("hairStyle", "")
 
 	var fill := func(x0: int, y0: int, x1: int, y1: int, v: int) -> void:
 		for y in range(y0, y1 + 1):
 			for x in range(x0, x1 + 1):
 				set_px(s, x, y, v)
 
-	# head
-	fill.call(5, 3, 10, 9, skin)
-	fill.call(5, 9, 10, 9, skin_d)
+	# ---- head: rows 3-15, a good third of the figure ----
+	fill.call(7, 3, 16, 14, skin)
+	fill.call(6, 5, 6, 12, skin)          # cheeks
+	fill.call(17, 5, 17, 12, skin)
+	fill.call(7, 13, 16, 14, skin_d)      # under the jaw
+	fill.call(8, 15, 15, 15, skin_d)      # neck
+
 	if not outline_only:
-		set_px(s, 6, 6, OUT)
-		set_px(s, 9, 6, OUT)
-	fill.call(7, 8, 8, 8, skin_d)
-	# hair
-	if o.get("hairStyle", "") != "bald":
-		fill.call(4, 1, 11, 2, hair)
-		var hair_bottom: int = 8 if o.get("hairLong", false) else 5
-		fill.call(4, 3, 4, hair_bottom, hair)
-		fill.call(11, 3, 11, hair_bottom, hair)
-		if o.get("hairStyle", "") == "fringe":
-			fill.call(5, 3, 10, 3, hair)
-		if o.get("hairStyle", "") == "tall":
-			fill.call(5, 0, 10, 0, hair)
+		# eyes: white, pupil, and a lash line above -- the whole reason for 24x32
+		fill.call(9, 8, 10, 9, 6)
+		fill.call(13, 8, 14, 9, 6)
+		fill.call(9, 8, 9, 8, OUT)
+		fill.call(13, 8, 13, 8, OUT)
+		fill.call(9, 9, 10, 9, 22)
+		fill.call(13, 9, 14, 9, 22)
+		fill.call(9, 7, 10, 7, OUT)
+		fill.call(13, 7, 14, 7, OUT)
+		fill.call(11, 10, 12, 11, skin_d)  # nose
+		fill.call(10, 12, 13, 12, skin_d)  # mouth line
+		fill.call(11, 12, 12, 12, 13)
+
+	# ---- hair ----
+	if style != "bald":
+		fill.call(6, 1, 17, 4, hair)
+		fill.call(7, 0, 16, 0, hair)
+		fill.call(5, 3, 5, 9, hair)        # sideburns down each side
+		fill.call(18, 3, 18, 9, hair)
+		if style == "fringe":
+			fill.call(7, 5, 16, 6, hair)
+			fill.call(8, 7, 11, 7, hair)
+		if style == "tall":
+			fill.call(8, -2 + 2, 15, 0, hair)
+			fill.call(10, 0, 13, 0, hair)
+		if long_hair:
+			fill.call(4, 4, 5, 18, hair)
+			fill.call(18, 4, 19, 18, hair)
+			fill.call(4, 18, 6, 19, hair)
+			fill.call(17, 18, 19, 19, hair)
 	if o.has("hat"):
-		fill.call(3, 1, 12, 2, o.hat)
-		fill.call(5, 0, 10, 0, o.hat)
-		fill.call(3, 2, 12, 2, o.get("hatBand", o.hat))
-	# torso
-	fill.call(4, 10, 11, 16, shirt)
-	fill.call(4, 15, 11, 16, shirt_d)
-	if o.has("belt"):
-		fill.call(4, 16, 11, 16, o.belt)
+		fill.call(4, 2, 19, 4, o.get("hat"))
+		fill.call(7, 0, 16, 2, o.get("hat"))
+		fill.call(4, 4, 19, 4, o.get("hatBand", o.get("hat")))
+
+	# ---- torso: rows 16-25 ----
+	fill.call(7, 16, 16, 25, shirt)
+	fill.call(7, 23, 16, 25, shirt_d)      # hem in shadow
+	fill.call(11, 16, 12, 25, shirt_d)     # a fold down the middle
 	if o.has("vest"):
-		fill.call(5, 10, 6, 15, o.vest)
-		fill.call(9, 10, 10, 15, o.vest)
-	# arms
-	fill.call(2, 11, 3, 15, shirt)
-	fill.call(12, 11, 13, 15, shirt)
-	fill.call(2, 16, 3, 17, skin)
-	fill.call(12, 16, 13, 17, skin)
-	# legs
-	fill.call(5, 17, 7, 21, pants)
-	fill.call(8, 17, 10, 21, pants)
-	fill.call(5, 22, 7, 23, shoe)
-	fill.call(8, 22, 10, 23, shoe)
+		fill.call(8, 16, 9, 24, o.get("vest"))
+		fill.call(14, 16, 15, 24, o.get("vest"))
+	if o.has("belt"):
+		fill.call(7, 24, 16, 25, o.get("belt"))
+
+	# ---- arms ----
+	fill.call(4, 17, 6, 24, shirt)
+	fill.call(17, 17, 19, 24, shirt)
+	fill.call(4, 23, 6, 24, shirt_d)
+	fill.call(17, 23, 19, 24, shirt_d)
+	fill.call(4, 25, 6, 27, skin)          # hands
+	fill.call(17, 25, 19, 27, skin)
+
+	# ---- legs ----
+	fill.call(8, 26, 11, 30, pants)
+	fill.call(12, 26, 15, 30, pants)
+	fill.call(11, 26, 12, 30, pants)
+	fill.call(8, 31, 11, 31, shoe)
+	fill.call(12, 31, 15, 31, shoe)
+	fill.call(7, 31, 7, 31, shoe)
+	fill.call(16, 31, 16, 31, shoe)
 
 	# outline pass: any empty pixel touching a filled one becomes outline
 	var src := s.duplicate()
@@ -188,8 +224,8 @@ static func build(o: Dictionary) -> PackedByteArray:
 static func back_view(s: PackedByteArray) -> PackedByteArray:
 	var b := s.duplicate()
 	var tally := {}
-	for y in range(1, 4):
-		for x in range(3, 13):
+	for y in range(1, 5):
+		for x in range(4, 20):
 			var v := get_px(s, x, y)
 			if v != 0 and v != 1:
 				tally[v] = tally.get(v, 0) + 1
@@ -205,7 +241,7 @@ static func back_view(s: PackedByteArray) -> PackedByteArray:
 	# silhouette edge alone so the outline survives. Filling by colour instead
 	# would keep the eyes, which are drawn in the outline colour -- the back of
 	# a head should not be looking at you.
-	for y in range(3, 10):
+	for y in range(3, 16):
 		for x in W:
 			var v := get_px(s, x, y)
 			if v == 0:
