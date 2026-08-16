@@ -263,10 +263,7 @@ func _draw() -> void:
 		return
 	var cam := camera()
 	draw_rect(Rect2(0, 0, UI.SCREEN_W, UI.SCREEN_H), Color.BLACK, true)
-	if map.texture != null:
-		draw_texture_rect_region(map.texture,
-			Rect2(0, 0, UI.SCREEN_W, UI.SCREEN_H),
-			Rect2(cam.x, cam.y, UI.SCREEN_W, UI.SCREEN_H))
+	_draw_tiles(cam)
 	_draw_water(cam)
 
 	for c in map.chests:
@@ -319,6 +316,55 @@ func _draw() -> void:
 	_draw_hud()
 	if msg != null:
 		_draw_msg()
+
+
+## Draw only the tiles the camera can see, plus the terrain edges. This is a
+## few hundred draws a frame and, unlike a composed texture, does not care how
+## big the world is.
+func _draw_tiles(cam: Vector2) -> void:
+	var tex := Maps.textures()
+	var x0 := int(floor(cam.x / TS))
+	var y0 := int(floor(cam.y / TS))
+	var cols := int(UI.SCREEN_W / TS) + 2
+	var rows := int(UI.SCREEN_H / TS) + 2
+	for ty in range(y0, y0 + rows):
+		for tx in range(x0, x0 + cols):
+			var ch := map.get_tile(tx, ty)
+			var arr: Array = tex.get(ch, tex.get(".", []))
+			if arr.is_empty():
+				continue
+			var sx := tx * TS - cam.x
+			var sy := ty * TS - cam.y
+			draw_texture_rect(arr[Maps.variant_of(tx, ty, arr.size())],
+				Rect2(sx, sy, TS, TS), false)
+			_tile_edges(tx, ty, sx, sy, ch)
+
+
+## Contact shadow under anything solid, bright rim where water meets land. The
+## same two effects that used to be baked into the composed image.
+func _tile_edges(tx: int, ty: int, sx: float, sy: float, ch: String) -> void:
+	if ch == "~":
+		if map.get_tile(tx, ty - 1) != "~":
+			UI.rect(self, sx, sy, TS, 1, Color(1, 1, 1, 0.30))
+			UI.rect(self, sx, sy + 1, TS, 1, Color(1, 1, 1, 0.14))
+		if map.get_tile(tx, ty + 1) != "~":
+			UI.rect(self, sx, sy + TS - 1, TS, 1, Color(1, 1, 1, 0.16))
+		if map.get_tile(tx - 1, ty) != "~":
+			UI.rect(self, sx, sy, 1, TS, Color(1, 1, 1, 0.16))
+		if map.get_tile(tx + 1, ty) != "~":
+			UI.rect(self, sx + TS - 1, sy, 1, TS, Color(1, 1, 1, 0.16))
+		return
+	if Maps.is_solid(ch):
+		return
+	if Maps.is_solid(map.get_tile(tx, ty - 1)):
+		UI.rect(self, sx, sy, TS, 1, Color(0, 0, 0, 0.38))
+		UI.rect(self, sx, sy + 1, TS, 1, Color(0, 0, 0, 0.24))
+		UI.rect(self, sx, sy + 2, TS, 1, Color(0, 0, 0, 0.12))
+	if Maps.is_solid(map.get_tile(tx - 1, ty)):
+		UI.rect(self, sx, sy, 1, TS, Color(0, 0, 0, 0.28))
+		UI.rect(self, sx + 1, sy, 1, TS, Color(0, 0, 0, 0.14))
+	if Maps.is_solid(map.get_tile(tx + 1, ty)):
+		UI.rect(self, sx + TS - 1, sy, 1, TS, Color(0, 0, 0, 0.18))
 
 
 ## Water is baked into the map texture along with its shoreline, so this draws

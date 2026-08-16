@@ -466,7 +466,9 @@ class GameMap extends RefCounted:
 	func region_at(_x: int, y: int) -> String:
 		if id != "world":
 			return region
-		return "meadow" if y > 40 else ("wood" if y > 22 else "crag")
+		# bands by fraction of the map, so they hold at any world size
+		var f := float(y) / float(maxi(1, h))
+		return "meadow" if f > 0.62 else ("wood" if f > 0.34 else "crag")
 
 
 ## Multiply a run of pixels, for contact shadows and rim light.
@@ -524,16 +526,28 @@ static func _edge_pass(m: GameMap, img: Image) -> void:
 			# selection rather than as terrain.
 
 
-## Compose the whole map into one texture, once.
-static func prerender(m: GameMap) -> void:
-	var a := atlas()
-	var img := Image.create(m.w * TS, m.h * TS, false, Image.FORMAT_RGBA8)
-	var src := Rect2i(0, 0, TS, TS)
-	for y in m.h:
-		for x in m.w:
-			var ch := m.get_tile(x, y)
-			var variants: Array = a.get(ch, a["."])
-			var v := int(hash2(x, y) * 4.0) % variants.size()
-			img.blit_rect(variants[v], src, Vector2i(x * TS, y * TS))
-	_edge_pass(m, img)
-	m.texture = ImageTexture.create_from_image(img)
+## Tile textures, built once from the atlas. Drawing from these each frame
+## replaces composing the whole map into a single image, which put a hard
+## ceiling on how big a world could be.
+static var _tex := {}
+
+static func textures() -> Dictionary:
+	if not _tex.is_empty():
+		return _tex
+	for ch in atlas():
+		var arr: Array = []
+		for img in atlas()[ch]:
+			arr.append(ImageTexture.create_from_image(img))
+		_tex[ch] = arr
+	return _tex
+
+
+## Which of the four variants a tile uses. Deterministic, so a tile does not
+## shimmer between variants as the camera moves.
+static func variant_of(x: int, y: int, count: int) -> int:
+	return int(hash2(x, y) * 4.0) % maxi(1, count)
+
+
+## Kept so callers that still ask for it do not break; nothing is composed now.
+static func prerender(_m: GameMap) -> void:
+	pass

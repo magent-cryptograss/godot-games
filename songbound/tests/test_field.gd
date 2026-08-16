@@ -104,10 +104,11 @@ func _audit() -> void:
 
 	# the town exit must reach the cave mouth on the overworld: flood fill
 	var world: Maps.GameMap = maps["world"]
-	var reach := _flood(world, Vector2i(20, 53))
-	_expect(reach.has(Vector2i(48, 10)), "cave mouth is reachable from the town gate")
-	_expect(reach.has(Vector2i(62, 46)), "the shrine clearing is reachable")
-	print("  (overworld reachable tiles from town: %d)" % reach.size())
+	var reach := _flood(world, World.town_gate)
+	_expect(reach.has(World.cave_mouth),
+		"cave mouth at %s is reachable from the town gate at %s" % [World.cave_mouth, World.town_gate])
+	print("  (overworld is %dx%d = %d tiles; %d reachable on foot from town)" % [
+		world.w, world.h, world.w * world.h, reach.size()])
 
 	# each cave floor must connect its entrance to its exit
 	for pair in [["cave1", Vector2i(8, 24), Vector2i(33, 7)],
@@ -118,25 +119,45 @@ func _audit() -> void:
 		_expect(r.has(pair[2]), "%s: entrance connects to the way on" % pair[0])
 
 
-func _flood(m: Maps.GameMap, from: Vector2i) -> Dictionary:
-	var seen := {}
-	var stack := [from]
-	var guard := 0
-	while stack.size() > 0 and guard < 200000:
-		guard += 1
+## Flood fill over a flat byte buffer. The old version kept a Dictionary keyed
+## by Vector2i, which allocated an object per visited tile -- fine at 5,000
+## tiles, ruinous at 512,000.
+class Reach extends RefCounted:
+	var seen: PackedByteArray
+	var w: int
+	var h: int
+	var count: int = 0
+	func _init(p_w: int, p_h: int) -> void:
+		w = p_w
+		h = p_h
+		seen.resize(w * h)
+	func has(p: Vector2i) -> bool:
+		if p.x < 0 or p.y < 0 or p.x >= w or p.y >= h:
+			return false
+		return seen[p.y * w + p.x] == 1
+	func size() -> int:
+		return count
+
+
+func _flood(m: Maps.GameMap, from: Vector2i) -> Reach:
+	var r := Reach.new(m.w, m.h)
+	var stack: Array[Vector2i] = [from]
+	while stack.size() > 0:
 		var p: Vector2i = stack.pop_back()
-		if seen.has(p):
-			continue
 		if p.x < 0 or p.y < 0 or p.x >= m.w or p.y >= m.h:
+			continue
+		var idx := p.y * m.w + p.x
+		if r.seen[idx] == 1:
 			continue
 		if Maps.is_solid(m.get_tile(p.x, p.y)):
 			continue
-		seen[p] = true
-		stack.append(p + Vector2i(1, 0))
-		stack.append(p + Vector2i(-1, 0))
-		stack.append(p + Vector2i(0, 1))
-		stack.append(p + Vector2i(0, -1))
-	return seen
+		r.seen[idx] = 1
+		r.count += 1
+		stack.append(Vector2i(p.x + 1, p.y))
+		stack.append(Vector2i(p.x - 1, p.y))
+		stack.append(Vector2i(p.x, p.y + 1))
+		stack.append(Vector2i(p.x, p.y - 1))
+	return r
 
 
 func _go(i: int) -> void:

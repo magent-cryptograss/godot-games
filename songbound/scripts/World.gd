@@ -5,6 +5,12 @@ extends RefCounted
 
 static var maps := {}
 
+## Where the world generator put things. Published so the town, the caves and
+## the tests do not have to hardcode coordinates that move whenever the world
+## is regenerated or resized.
+static var town_gate := Vector2i(20, 53)
+static var cave_mouth := Vector2i(48, 10)
+
 
 static func build_all() -> Dictionary:
 	if not maps.is_empty():
@@ -45,15 +51,30 @@ static func _noise(w: int, h: int, cells: int, rng: RandomNumberGenerator) -> Ca
 		return lerp(a, b, ty)
 
 
+## The overworld. WORLD_W x WORLD_H tiles -- a hundred times the area of the
+## first version, which means the landmarks have to scale with it or the whole
+## thing is a very long walk between two interesting places.
+const WORLD_W := 800
+const WORLD_H := 640
+
 static func _world() -> void:
-	var w := 80
-	var h := 64
+	var w := WORLD_W
+	var h := WORLD_H
 	var m := Maps.GameMap.new("world", w, h, ".")
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 20260815
-	var elev := _noise(w, h, 7, rng)
-	var moist := _noise(w, h, 9, rng)
-	var detail := _noise(w, h, 18, rng)
+
+	# Noise cell counts scale with the map, so forests and ranges stay the same
+	# size on screen instead of stretching into continents.
+	# Feature size, not cell count, is what the eye reads. At w/11 the whole map
+	# came out speckled -- a hundred small blobs rather than ranges and forests
+	# you can navigate by.
+	var cells_e := maxi(5, int(w / 30))
+	var cells_m := maxi(5, int(w / 24))
+	var cells_d := maxi(6, int(w / 7))
+	var elev := _noise(w, h, cells_e, rng)
+	var moist := _noise(w, h, cells_m, rng)
+	var detail := _noise(w, h, cells_d, rng)
 
 	for y in h:
 		for x in w:
@@ -61,8 +82,8 @@ static func _world() -> void:
 			var e: float = elev.call(x, y) * 0.62 + northness * 0.55 + detail.call(x, y) * 0.1
 			var mo: float = moist.call(x, y)
 			var c := "."
-			if e > 0.80: c = "^"
-			elif e > 0.70: c = "r"
+			if e > 0.82: c = "^"
+			elif e > 0.76: c = "r"
 			elif mo < 0.22 and e < 0.42: c = "~"
 			elif mo > 0.66: c = "T" if detail.call(x, y) > 0.5 else "P"
 			elif mo > 0.55: c = ","
@@ -72,50 +93,83 @@ static func _world() -> void:
 
 	# a hard border of peaks, so you cannot walk off the edge
 	for x in w:
-		m.set_tile(x, 0, "^"); m.set_tile(x, 1, "^")
-		m.set_tile(x, h - 1, "^"); m.set_tile(x, h - 2, "^")
+		for k in 2:
+			m.set_tile(x, k, "^")
+			m.set_tile(x, h - 1 - k, "^")
 	for y in h:
-		m.set_tile(0, y, "^"); m.set_tile(1, y, "^")
-		m.set_tile(w - 1, y, "^"); m.set_tile(w - 2, y, "^")
+		for k in 2:
+			m.set_tile(k, y, "^")
+			m.set_tile(w - 1 - k, y, "^")
 
-	# a river across the middle; roads bridge it afterwards
-	var ry := 34
-	for x in range(2, w - 2):
-		ry += 1 if rng.randf() > 0.5 else -1
-		ry = clampi(ry, 26, 40)
-		m.set_tile(x, ry, "~")
-		m.set_tile(x, ry + 1, "~")
-		if rng.randf() > 0.7:
-			m.set_tile(x, ry + 2, "~")
+	# several rivers rather than one, spaced down the map
+	for river in 4:
+		var ry := int(h * (0.24 + river * 0.17))
+		for x in range(2, w - 2):
+			ry += 1 if rng.randf() > 0.5 else -1
+			ry = clampi(ry, int(h * (0.18 + river * 0.17)), int(h * (0.30 + river * 0.17)))
+			m.set_tile(x, ry, "~")
+			m.set_tile(x, ry + 1, "~")
+			if rng.randf() > 0.6:
+				m.set_tile(x, ry + 2, "~")
 
-	var town := Vector2i(20, 52)
-	var cave := Vector2i(48, 9)
-	var shrine := Vector2i(62, 44)
-	# Order matters: stamp the solid landmarks FIRST, then carve roads through
-	# them. Doing it the other way round buried the road to the cave mouth under
-	# the mountain ring and made the whole dungeon unreachable.
+	var town := Vector2i(int(w * 0.14), int(h * 0.86))
+	var cave := Vector2i(int(w * 0.62), int(h * 0.09))
+
+	# Waypoints strung between town and the cave mouth, so the road is a journey
+	# with things on it rather than a straight line across half a million tiles.
+	var waypoints: Array = []
+	var steps := 9
+	for i in range(1, steps):
+		var t := float(i) / float(steps)
+		var wx := int(lerp(float(town.x), float(cave.x), t) + sin(t * 6.0) * w * 0.12)
+		var wy := int(lerp(float(town.y), float(cave.y), t))
+		waypoints.append(Vector2i(clampi(wx, 6, w - 7), clampi(wy, 6, h - 7)))
+
+	# stamp the solid landmarks first, then carve roads through them
 	m.rect(town.x - 4, town.y - 3, 9, 7, ".")
 	m.building(town.x - 2, town.y - 3, 5, 4, 2)
 	m.rect(cave.x - 2, cave.y - 1, 5, 2, "^")
 
-	# roads run below the gatehouse and up to the cave mouth
-	m.road(town.x, town.y + 1, 34, 44)
-	m.road(34, 44, 34, 30)
-	m.road(34, 30, cave.x, 16)
-	m.road(cave.x, 16, cave.x, cave.y + 1)
-	m.road(34, 44, shrine.x, shrine.y)
+	var prev := Vector2i(town.x, town.y + 1)
+	for wp in waypoints:
+		m.road(prev.x, prev.y, wp.x, wp.y)
+		prev = wp
+	m.road(prev.x, prev.y, cave.x, cave.y + 1)
 
 	m.set_tile(town.x, town.y, "o")
 	m.warps.append({"x": town.x, "y": town.y, "to": "town", "tx": 15, "ty": 24})
 	m.set_tile(cave.x, cave.y, "C")
 	m.warps.append({"x": cave.x, "y": cave.y, "to": "cave1", "tx": 8, "ty": 24})
+	town_gate = Vector2i(town.x, town.y + 1)
+	cave_mouth = Vector2i(cave.x, cave.y + 1)
 
-	m.rect(shrine.x - 2, shrine.y - 2, 5, 5, "o")
-	m.set_tile(shrine.x, shrine.y - 2, "S")
-	m.npcs.append({"x": shrine.x, "y": shrine.y - 2, "sign": true, "lines": Story.SIGN_SHRINE})
-	m.chests.append({"x": shrine.x + 1, "y": shrine.y + 1, "item": "strings", "id": "w1"})
-	m.chests.append({"x": 12, "y": 30, "item": "rosin2", "id": "w2"})
-	m.chests.append({"x": 66, "y": 20, "item": "tonic2", "id": "w3"})
+	# A clearing at every waypoint: a signpost, and often something in a chest.
+	# These are what stop the road being empty.
+	var chest_items := ["tonic", "tonic2", "rosin", "rosin2", "salve", "bread", "strings", "charm"]
+	for i in waypoints.size():
+		var wp: Vector2i = waypoints[i]
+		m.rect(wp.x - 2, wp.y - 2, 5, 5, "o")
+		m.set_tile(wp.x, wp.y - 2, "S")
+		m.npcs.append({"x": wp.x, "y": wp.y - 2, "sign": true, "lines": Story.SIGN_SHRINE})
+		if i % 2 == 0:
+			m.chests.append({"x": wp.x + 1, "y": wp.y + 1,
+				"item": chest_items[i % chest_items.size()], "id": "wp%d" % i})
+
+	# and chests scattered off the road, for anyone who wanders
+	var cr := RandomNumberGenerator.new()
+	cr.seed = 99001
+	var placed := 0
+	var tries := 0
+	while placed < 24 and tries < 4000:
+		tries += 1
+		var cx := cr.randi_range(6, w - 7)
+		var cy := cr.randi_range(6, h - 7)
+		if Maps.is_solid(m.get_tile(cx, cy)):
+			continue
+		m.rect(cx - 1, cy - 1, 3, 3, "f")
+		m.chests.append({"x": cx, "y": cy,
+			"item": chest_items[placed % chest_items.size()], "id": "wild%d" % placed})
+		placed += 1
 
 	m.region = "meadow"
 	m.start = Vector2i(town.x, town.y + 3)
@@ -148,7 +202,7 @@ static func _town() -> void:
 	m.set_tile(9, 12, "S")
 	m.rect(24, 21, 3, 3, "g")
 	m.set_tile(15, h - 3, "o"); m.set_tile(15, h - 2, "o"); m.set_tile(15, h - 1, "o")
-	m.warps.append({"x": 15, "y": h - 1, "to": "world", "tx": 20, "ty": 53})
+	m.warps.append({"x": 15, "y": h - 1, "to": "world", "tx": town_gate.x, "ty": town_gate.y})
 
 	m.npcs.append({"x": 9, "y": 12, "sign": true, "lines": Story.SIGN_TOWN})
 	m.npcs.append({"x": 12, "y": 15, "look": "oldman", "dir": "down", "lines": Story.OLDMAN})
@@ -231,7 +285,7 @@ static func _caves() -> void:
 		Vector2i(22, 8), Vector2i(28, 12), Vector2i(30, 20), Vector2i(22, 22),
 		Vector2i(16, 24), Vector2i(33, 7)], 2)
 	c1.set_tile(8, 25, "C")
-	c1.warps.append({"x": 8, "y": 25, "to": "world", "tx": 48, "ty": 10})
+	c1.warps.append({"x": 8, "y": 25, "to": "world", "tx": cave_mouth.x, "ty": cave_mouth.y})
 	c1.set_tile(33, 7, "*")
 	c1.warps.append({"x": 33, "y": 7, "to": "cave2", "tx": 6, "ty": 22})
 	c1.chests.append({"x": 22, "y": 8, "item": "rosin2", "id": "c1a"})

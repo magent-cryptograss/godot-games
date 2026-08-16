@@ -108,7 +108,6 @@ func _logic() -> void:
 	var maps := World.build_all()
 	var live: Maps.GameMap = maps["house1"]
 	_expect(live.start == Vector2i(5, 7), "saved map overrides the generated one")
-	_expect(live.texture != null, "overridden map got prerendered")
 
 	# the scratch layer must win over the shipped copy
 	MapIO.ensure_dir(MapIO.USER_DIR)
