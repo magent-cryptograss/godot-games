@@ -353,8 +353,16 @@ func _draw() -> void:
 					gd = Sprites.mirrored(Sprites.side_view(g))
 				elif d == "right":
 					gd = Sprites.side_view(g)
+				var nlook := UI.FACE_FRONT
+				if d == "left":
+					nlook = UI.FACE_LEFT
+				elif d == "right":
+					nlook = UI.FACE_RIGHT
+				# gd is already the correct-facing drawing, so it must not be
+				# flipped again on top of that
 				UI.sprite(self, gd,
-					n.x * TS - cam.x - 4, n.y * TS - cam.y - 16, 1, d == "left")
+					n.x * TS - cam.x - 4, n.y * TS - cam.y - 16, 1, false,
+					false, 0, null, nlook)
 			"boss":
 				var b = item.ref
 				Bestiary.draw_art(self, Data.BESTIARY[b.id].art,
@@ -367,7 +375,13 @@ func _draw() -> void:
 				var py := pos.y * TS + offset.y - cam.y - 16
 				UI.shadow(self, px + 12, py + 31, 7, 2)
 				# each facing is its own drawing now, so nothing is flipped here
-				UI.sprite(self, p.view(facing), px, py, 1, false, walking, frame)
+				var look := UI.FACE_FRONT
+				if facing == "left":
+					look = UI.FACE_LEFT
+				elif facing == "right":
+					look = UI.FACE_RIGHT
+				UI.sprite(self, p.view(facing), px, py, 1, false, walking, frame,
+					null, look)
 
 	if _is_cave():
 		_draw_cave_light(cam)

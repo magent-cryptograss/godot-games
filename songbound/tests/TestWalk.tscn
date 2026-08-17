@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://ctestwalk00001"]
+
+[ext_resource type="Script" path="res://tests/test_walk.gd" id="1_twalk"]
+
+[node name="TestWalk" type="Node2D"]
+script = ExtResource("1_twalk")

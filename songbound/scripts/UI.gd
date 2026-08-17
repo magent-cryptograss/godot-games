@@ -104,14 +104,32 @@ static func shadow(ci: CanvasItem, cx: float, cy: float, rx: float, ry: float) -
 	pellipse(ci, cx, cy, rx, ry, Color(0, 0, 0, 0.3))
 
 
-## Draw a 16x24 palette-index sprite. frame animates the legs and adds a bob,
-## which is enough to read as walking without four hand-drawn sheets.
+## Where the figure is looking, which decides how the walk cycle is built.
+enum { FACE_FRONT, FACE_RIGHT, FACE_LEFT }
+
+## The middle of the figure. The legs are drawn either side of it, so this is
+## where they have to be split for them to scissor rather than slide.
+const MID := 12
+
+## Rows. Below TORSO_Y is arms and body, below LEG_Y is legs.
+const TORSO_Y := 17
+const LEG_Y := 26
+
+
+## Draw a palette-index sprite, animating a walk out of one still drawing.
+##
+## Four frames: stand, one leg forward, stand, the other leg forward, with a
+## one-pixel bob on the upper body as the weight shifts.
 static func sprite(ci: CanvasItem, g: PackedByteArray, x: float, y: float, sc: int = 1,
-		flip: bool = false, walking: bool = false, frame: int = 0, tint = null) -> void:
+		flip: bool = false, walking: bool = false, frame: int = 0, tint = null,
+		facing: int = FACE_FRONT) -> void:
 	var bob := 1 if walking and (frame % 4 == 1 or frame % 4 == 3) else 0
 	var leg := 0
 	if walking:
 		leg = 1 if frame % 4 == 1 else (-1 if frame % 4 == 3 else 0)
+	# a profile drawn facing left has its front where a right-facing one has its
+	# back, so every comparison below is reflected rather than assumed
+
 	for yy in Sprites.H:
 		for xx in Sprites.W:
 			var sx := (Sprites.W - 1 - xx) if flip else xx
@@ -119,13 +137,34 @@ static func sprite(ci: CanvasItem, g: PackedByteArray, x: float, y: float, sc: i
 			if v == 0:
 				continue
 			var c: Color = tint if tint != null else Sprites.PALETTE[v]
-			var dx := xx
-			var dy := yy
-			if yy < 17:
-				dy += bob
-			else:
-				dx += leg if xx < 8 else -leg
-			ci.draw_rect(Rect2(round(x + dx * sc), round(y + dy * sc), sc, sc), c, true)
+			var off := walk_offset(xx, yy, leg, bob, facing)
+			ci.draw_rect(Rect2(round(x + (xx + off.x) * sc), round(y + (yy + off.y) * sc),
+				sc, sc), c, true)
+
+
+## Where one pixel of the figure moves to on this frame of the walk.
+##
+## leg is -1, 0 or +1 for the stride, bob is 0 or 1 for the weight shift. Kept
+## out of the draw loop so tests can check the shape of the cycle rather than a
+## person having to watch it.
+static func walk_offset(xx: int, yy: int, leg: int, bob: int, facing: int) -> Vector2i:
+	# a profile drawn facing left has its front where a right-facing one has its
+	# back, so the comparisons are reflected rather than assumed
+	var s := -1 if facing == FACE_LEFT else 1
+	var lead: bool = (xx - MID) * s >= 0        # on the leading side
+
+	if yy < TORSO_Y:
+		return Vector2i(0, bob)
+	if facing == FACE_FRONT:
+		# seen head-on: one leg swings forward as the other swings back, and the
+		# arms follow the opposite leg
+		return Vector2i(leg if xx < MID else -leg, 0)
+	if yy < LEG_Y:
+		# in profile the arm is the frontmost mass in these rows, and it swings
+		# against the leading leg. The torso behind it stays put.
+		return Vector2i(-leg * s if lead else 0, 0)
+	# the legs scissor about the middle of the figure
+	return Vector2i((leg * s) if lead else (-leg * s), 0)
 
 
 ## Element sigils, used on the level-up cards and in creation.
