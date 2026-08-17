@@ -196,39 +196,54 @@ static func _tile_image(ch: String, v: int) -> Image:
 			# A canopy of overlapping lobes rather than one disc, lit from the top
 			# left, with a cast shadow to sit it on the ground. One flat circle
 			# reads as a bush.
+			# Canopy of overlapping lobes, lit from the top left, with a cast
+			# shadow to sit it on the ground -- and every measurement taken from
+			# the variant, so a wood is not one tree printed forty times.
 			_fill(img, 0, 0, 32, 32, Color("#4a7a44"))
-			_ellipse(img, 18, 28, 12, 4, Color("#3c6438"))
-			_fill(img, 14, 20, 5, 10, Color("#4a3018"))
-			_fill(img, 14, 20, 2, 10, Color("#6b4823"))
-			_fill(img, 18, 20, 1, 10, Color("#33200f"))
-			_disc(img, 16, 14, 12, Color("#1d4423"))
-			for lobe in [[11, 10, 8], [22, 12, 7], [16, 18, 8], [18, 8, 6]]:
-				_disc(img, int(lobe[0]), int(lobe[1]), int(lobe[2]), Color("#2b6231"))
-			for lobe in [[12, 10, 6], [20, 10, 4], [14, 16, 4], [23, 15, 3]]:
-				_disc(img, int(lobe[0]), int(lobe[1]), int(lobe[2]), Color("#3a7a3e"))
-			_disc(img, 10, 8, 4, Color("#4d9350"))
-			_fill(img, 8, 6, 4, 2, Color("#63a862"))
-			_dith(img, 6, 18, 20, 6, Color("#1d4423"), Color("#2b6231"))
+			var tx4 := 14 + int(r.call(1) * 5)          # where the trunk stands
+			var cw := 10 + int(r.call(2) * 4)           # how wide the canopy is
+			var ct := 12 + int(r.call(3) * 4)           # and how high
+			_ellipse(img, tx4 + 3, 28, cw + 1, 4, Color("#3c6438"))
+			_fill(img, tx4, ct + 4, 5, 26 - ct, Color("#4a3018"))
+			_fill(img, tx4, ct + 4, 2, 26 - ct, Color("#6b4823"))
+			_fill(img, tx4 + 4, ct + 4, 1, 26 - ct, Color("#33200f"))
+			_disc(img, tx4 + 2, ct, cw + 1, Color("#1d4423"))
+			for k in 4:
+				_disc(img, tx4 + 2 + int((r.call(k + 10) - 0.5) * cw * 1.4),
+					ct + int((r.call(k + 20) - 0.5) * cw), 5 + int(r.call(k + 30) * 3),
+					Color("#2b6231"))
+			for k in 3:
+				_disc(img, tx4 + int((r.call(k + 40) - 0.5) * cw),
+					ct - 2 + int((r.call(k + 45) - 0.5) * cw * 0.8),
+					3 + int(r.call(k + 50) * 3), Color("#3a7a3e"))
+			_disc(img, tx4 - cw + 4, ct - cw + 5, 4, Color("#4d9350"))
+			_fill(img, tx4 - cw + 2, ct - cw + 3, 4, 2, Color("#63a862"))
+			_dith(img, tx4 - cw + 2, ct + 3, cw * 2 - 4, 6,
+				Color("#1d4423"), Color("#2b6231"))
 			for i in 10:
 				_fill(img, 4 + int(r.call(i) * 24), 4 + int(r.call(i + 9) * 20), 1, 1,
 					Color("#4d9350"))
 		"P":
 			_fill(img, 0, 0, 32, 32, Color("#4a7a44"))
-			_ellipse(img, 18, 30, 10, 3, Color("#3c6438"))
-			_fill(img, 14, 24, 5, 8, Color("#42301a"))
-			_fill(img, 14, 24, 2, 8, Color("#63421f"))
+			# height, girth and lean all out of the variant
+			var px5 := 14 + int(r.call(1) * 5)
+			var top := 1 + int(r.call(2) * 5)
+			var spread := 4 + int(r.call(3) * 2)
+			_ellipse(img, px5 + 4, 30, 10, 3, Color("#3c6438"))
+			_fill(img, px5, 24, 5, 8, Color("#42301a"))
+			_fill(img, px5, 24, 2, 8, Color("#63421f"))
 			# skirts of needles, lit along the top and dark underneath so the
 			# tiers read as tiers rather than as stripes
 			for i in 5:
-				var wd := 6 + i * 5
-				var yy := 3 + i * 5
-				var xx := 16 - (wd >> 1)
+				var wd := 6 + i * spread
+				var yy := top + i * 5
+				var xx := px5 + 2 - (wd >> 1)
 				_fill(img, xx, yy, wd, 6, Color("#1b4522"))
 				_fill(img, xx, yy, wd, 2, Color("#2e6a33"))
 				_fill(img, xx, yy, maxi(1, int(wd / 2)), 1, Color("#41894a"))
 				_fill(img, xx, yy + 5, wd, 1, Color("#12301a"))
-			_fill(img, 14, 0, 4, 5, Color("#2e6a33"))
-			_fill(img, 14, 0, 2, 3, Color("#41894a"))
+			_fill(img, px5, top - 2, 4, 5, Color("#2e6a33"))
+			_fill(img, px5, top - 2, 2, 3, Color("#41894a"))
 		"^":
 			# a peak with a lit face, a shaded face and snow on top
 			_fill(img, 0, 0, 32, 32, Color("#6b645a"))
@@ -236,31 +251,56 @@ static func _tile_image(ch: String, v: int) -> Image:
 				var half := int((i + 1) / 2) + 2
 				_fill(img, maxi(0, 16 - half), i, half, 1, Color("#8d8578"))
 				_fill(img, 16, i, half, 1, Color("#4e483f"))
-			_fill(img, 12, 2, 8, 5, Color("#d8d4cc"))
-			_fill(img, 14, 1, 5, 3, Color("#f0ece4"))
-			_fill(img, 16, 4, 4, 4, Color("#b4aea4"))
+			# snow on some peaks and not others, and never in quite the same place
+			if v % 3 != 2:
+				var sx5 := 10 + int(r.call(1) * 6)
+				_fill(img, sx5, 2, 8, 5, Color("#d8d4cc"))
+				_fill(img, sx5 + 2, 1, 5, 3, Color("#f0ece4"))
+				_fill(img, sx5 + 4, 4, 4, 4, Color("#b4aea4"))
 			for i in 5:
 				var cy := 8 + int(r.call(i) * 20)
 				_fill(img, 16 - int(r.call(i + 8) * 6), cy, 3, 1, Color("#5d564d"))
 		"r":
-			# a boulder sitting on the ground rather than a grey square
+			# Boulders sitting on the ground rather than grey squares, and no two
+			# the same: the size, the lean and the number of them all come out of
+			# the variant.
 			_fill(img, 0, 0, 32, 32, Color("#4a7a44"))
-			_ellipse(img, 17, 27, 13, 4, Color("#3c6438"))
-			_ellipse(img, 16, 18, 13, 11, Color("#4f4941"))
-			_ellipse(img, 15, 16, 11, 9, Color("#6b645a"))
-			_ellipse(img, 13, 13, 8, 6, Color("#847c70"))
-			_ellipse(img, 12, 11, 5, 3, Color("#9a9186"))
-			_dith(img, 6, 20, 20, 6, Color("#4f4941"), Color("#6b645a"))
-			_fill(img, 20, 14, 4, 1, Color("#3f3a34"))
-			_fill(img, 9, 20, 5, 1, Color("#3f3a34"))
+			if v % 4 == 3:
+				# a pair of smaller stones instead of one big one
+				for k in 2:
+					var kx := 9 + k * 13 + int(r.call(k) * 3)
+					var ky := 16 + k * 5
+					var kr := 5 + int(r.call(k + 4) * 3)
+					_ellipse(img, kx + 1, ky + kr - 1, kr + 2, 3, Color("#3c6438"))
+					_ellipse(img, kx, ky, kr + 1, kr, Color("#4f4941"))
+					_ellipse(img, kx - 1, ky - 1, kr, kr - 1, Color("#6b645a"))
+					_ellipse(img, kx - 2, ky - 2, kr - 2, kr - 3, Color("#847c70"))
+			else:
+				var cx2 := 14 + int(r.call(1) * 5)
+				var cy2 := 16 + int(r.call(2) * 4)
+				var rx := 10 + int(r.call(3) * 4)
+				var ry := 8 + int(r.call(4) * 4)
+				_ellipse(img, cx2 + 1, cy2 + ry - 1, rx + 2, 4, Color("#3c6438"))
+				_ellipse(img, cx2, cy2, rx, ry, Color("#4f4941"))
+				_ellipse(img, cx2 - 1, cy2 - 2, rx - 2, ry - 2, Color("#6b645a"))
+				_ellipse(img, cx2 - 3, cy2 - 4, rx - 5, ry - 5, Color("#847c70"))
+				_ellipse(img, cx2 - 4, cy2 - 6, rx - 8, ry - 8, Color("#9a9186"))
+				_dith(img, cx2 - rx + 2, cy2 + 2, rx * 2 - 6, 6,
+					Color("#4f4941"), Color("#6b645a"))
+				for k in 3:
+					_fill(img, cx2 - 4 + int(r.call(k + 9) * 10),
+						cy2 - 3 + int(r.call(k + 13) * 8), 3, 1, Color("#3f3a34"))
 		"%":
 			_fill(img, 0, 0, 32, 32, Color("#4a7a44"))
 			_ellipse(img, 17, 27, 12, 3, Color("#3c6438"))
-			for lobe in [[10, 20, 8], [22, 20, 8], [16, 15, 9]]:
-				_disc(img, int(lobe[0]), int(lobe[1]), int(lobe[2]), Color("#22522a"))
-			for lobe in [[10, 18, 6], [21, 18, 5], [15, 13, 6]]:
-				_disc(img, int(lobe[0]), int(lobe[1]), int(lobe[2]), Color("#2f6c34"))
-			_disc(img, 12, 12, 4, Color("#43884a"))
+			for k in 3:
+				_disc(img, 10 + int(r.call(k) * 14), 14 + int(r.call(k + 5) * 8),
+					6 + int(r.call(k + 9) * 4), Color("#22522a"))
+			for k in 3:
+				_disc(img, 10 + int(r.call(k + 12) * 12), 13 + int(r.call(k + 16) * 7),
+					4 + int(r.call(k + 20) * 3), Color("#2f6c34"))
+			_disc(img, 10 + int(r.call(24) * 6), 11 + int(r.call(25) * 4), 4,
+				Color("#43884a"))
 			for i in 8:
 				_fill(img, 5 + int(r.call(i) * 22), 8 + int(r.call(i + 7) * 16), 1, 1,
 					Color("#57a45c"))
@@ -530,13 +570,31 @@ static func _ellipse(img: Image, cx: int, cy: int, rx: int, ry: int, c: Color) -
 static func atlas() -> Dictionary:
 	if not _atlas.is_empty():
 		return _atlas
-	var chars := ". , \" f = o q B ~ T P ^ r % F # W R V d _ l D * X b c t p g S w C m".split(" ")
+	var chars := ". , \" f = o q B ~ T P ^ r % F # W n R V d _ l D * X b c t p g S w C m".split(" ")
 	for ch in chars:
 		var variants := []
-		for v in 4:
+		for v in variant_count(ch):
 			variants.append(_tile_image(ch, v))
 		_atlas[ch] = variants
+	# A tile with no entry here silently falls back to grass when it is drawn,
+	# which is how every house came to have a lawn across its bottom courses.
+	# Anything the world can be solid on has to have been given art.
+	for ch in SOLID:
+		if not _atlas.has(ch):
+			push_error("tile '%s' has no art and will be drawn as grass" % ch)
 	return _atlas
+
+
+## How many different drawings a tile gets. Things you see in bulk and in the
+## open -- rock, trees, undergrowth -- need more than four or a hillside is one
+## boulder printed forty times.
+static func variant_count(ch: String) -> int:
+	match ch:
+		"r", "T", "P", "^", "%", "X":
+			return 12
+		".", "f", ",", "\"", "=", "q", "D", "*":
+			return 6
+	return 4
 
 
 # ------------------------------------------------------------- map objects --
@@ -743,7 +801,7 @@ static func textures() -> Dictionary:
 ## Which of the four variants a tile uses. Deterministic, so a tile does not
 ## shimmer between variants as the camera moves.
 static func variant_of(x: int, y: int, count: int) -> int:
-	return int(hash2(x, y) * 4.0) % maxi(1, count)
+	return int(hash2(x, y) * float(maxi(1, count))) % maxi(1, count)
 
 
 ## Kept so callers that still ask for it do not break; nothing is composed now.
