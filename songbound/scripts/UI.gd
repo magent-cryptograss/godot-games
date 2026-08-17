@@ -8,8 +8,8 @@ extends RefCounted
 ## to carry any detail. Anything positioned against the right or the bottom must
 ## be written against these rather than as a number, or it lands off the screen
 ## the next time this changes.
-const SCREEN_W := 480
-const SCREEN_H := 360
+const SCREEN_W := 640
+const SCREEN_H := 480
 
 const COL_TEXT := Color("#f4f0e8")
 const COL_DIM := Color("#b0a8c8")
