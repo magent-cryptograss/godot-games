@@ -218,7 +218,7 @@ const BESTIARY := {
 		"skills": [{"name": "Drain", "pow": 1.0, "drain": 0.5}, {"name": "Dim", "pow": 0.6, "status": "weak", "chance": 0.4}]},
 	"gravehound":{"name": "Grave Hound", "art": "gravehound", "elem": "dark", "hp": 52, "atk": 14, "def": 8, "spd": 13, "xp": 30, "gold": 26,
 		"skills": [{"name": "Maul", "pow": 1.2}, {"name": "Howl", "pow": 0.5, "status": "weak", "chance": 0.5}]},
-	"discord":   {"name": "Discord", "art": "discord", "elem": "", "hp": 58, "atk": 13, "def": 10, "spd": 10, "xp": 34, "gold": 30,
+	"discord":   {"name": "Discord", "art": "discord", "elem": "dark", "hp": 58, "atk": 13, "def": 10, "spd": 10, "xp": 34, "gold": 30,
 		"skills": [{"name": "Wrong Note", "pow": 1.2}, {"name": "Screech", "pow": 1.0, "status": "stun", "chance": 0.25}]},
 	"bogwitch":  {"name": "Bog Witch", "art": "bogwitch", "elem": "plant", "hp": 62, "atk": 12, "def": 9, "spd": 9, "xp": 38, "gold": 40,
 		"skills": [{"name": "Hex", "pow": 1.1, "status": "poison", "chance": 0.4}, {"name": "Green Mend", "pow": 0.0, "heal": 0.4}]},
@@ -270,6 +270,67 @@ const REGIONS := {
 	"thicket": {"tier": 6.4, "music": "field_wood", "bg": "wood", "rate": 0.064, "mobs": ["bogwitch", "gravehound", "discord", "thunderram", "sentinel"]},
 }
 
+# ------------------------------------------------------- elemental matchups --
+
+## What each element is weak to. Creatures only: a song of one of these lands
+## hard on a creature of that element.
+const WEAK := {
+	"fire":     ["water", "earth"],
+	"water":    ["ice", "electric"],
+	"earth":    ["water"],
+	"ice":      ["fire", "electric"],
+	"electric": ["earth", "wind"],
+	"plant":    ["fire", "dark"],
+	"wind":     ["earth"],
+	"dark":     ["fire", "electric"],
+}
+
+## How much a song is worth against a creature it beats, and against one that
+## beats it.
+const WEAK_MUL := 1.55
+const RESIST_MUL := 0.6
+
+## Every element resists whatever it is strong against, which is the inverse of
+## the table above. Derived rather than written out, so the two cannot drift
+## apart the next time somebody edits one of them.
+static func resists(elem: String, against: String) -> bool:
+	return WEAK.get(against, []).has(elem)
+
+
+## What a song of `attack` is worth against a creature of `target`.
+func elem_effect(attack: String, target: String) -> float:
+	if WEAK.get(target, []).has(attack):
+		return WEAK_MUL
+	if resists(target, attack):
+		return RESIST_MUL
+	return 1.0
+
+
+## Being hit by an element leaves the player charged with others for a turn.
+## Keyed by the element that gets the boost: fire is charged by plant or wind.
+const CHARGED_BY := {
+	"fire":     ["plant", "wind"],
+	"water":    ["electric", "ice"],
+	"earth":    ["plant"],
+	"ice":      ["water"],
+	"electric": ["water"],
+	"plant":    ["water", "earth"],
+	"wind":     ["water", "plant"],
+	"dark":     ["dark"],
+}
+
+## What a charged song is worth. It lifts healing as well as damage.
+const CHARGE_MUL := 1.5
+
+## Which elements a hit of this element leaves charged.
+func charges_from(hit_by: String) -> Array:
+	var out: Array = []
+	for elem in CHARGED_BY:
+		if CHARGED_BY[elem].has(hit_by):
+			out.append(elem)
+	return out
+
+
 # --------------------------------------------------------- the damage model --
 ## Defence gives diminishing returns rather than flat subtraction. With flat
 ## subtraction the same monster is lethal at level 3 and harmless at level 15,
@@ -281,8 +342,11 @@ func mitigate(power: float, def_val: float, rng: RandomNumberGenerator = null) -
 	var variance := 0.9 + (rng.randf() if rng else randf()) * 0.2
 	return maxi(1, roundi(power * (1.0 - def_val / (def_val + DEF_K)) * variance))
 
+## Striking. Doubled from 1.7: a plain hit was worth so much less than a song
+## that there was never a reason to choose it except to save breath, which made
+## the command a formality rather than a decision.
 func phys_damage(atk: float, def_val: float, rng: RandomNumberGenerator = null) -> int:
-	return mitigate(atk * 1.7, def_val, rng)
+	return mitigate(atk * 3.4, def_val, rng)
 
 ## Enemies hit for much less per swing than the player does, because there are
 ## usually two or three of them and they all swing every round. The first pass

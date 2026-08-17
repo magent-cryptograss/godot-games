@@ -30,6 +30,11 @@ var msg := ""
 var pops: Array = []
 var shake := 0.0
 var p_status := {}
+
+## Elements the player is charged with, from having been hit. Cleared once they
+## have taken their next action -- being hit twice before acting stacks up the
+## charges rather than replacing them.
+var charged := {}
 var p_flash := 0.0
 var p_shake := 0.0
 var fx := {}
@@ -70,6 +75,7 @@ func begin(region_id: String, boss: String = "", flag: String = "") -> void:
 	target = 0
 	pending = {}
 	pops.clear()
+	charged.clear()
 	p_status.clear()
 	shake = 0.0
 	p_flash = 0.0
@@ -281,6 +287,7 @@ func end_of_round() -> void:
 # ------------------------------------------------------------ player moves --
 
 func do_strike(e: Dictionary) -> void:
+	charged.clear()
 	var crit := rng.randf() < 0.08
 	var d := Data.phys_damage(p_atk(), e_def(e), rng)
 	if crit:
@@ -302,10 +309,15 @@ func do_song(sd: Dictionary, idx: int) -> void:
 	p.br -= sd.cost
 	var el: Dictionary = Data.element(sd.elem)
 	var aff: int = p.affinity.get(sd.elem, 0)
+	# charged by having been hit: the song comes out stronger this once
+	var boost := Data.CHARGE_MUL if charged.has(sd.elem) else 1.0
+	if boost > 1.0:
+		set_msg("%s plays %s, charged!" % [p.name, sd.name])
 	Audio.play_song(sd.elem, Data.instrument(p.inst), str(sd.get("tune", "")))
 	fx = {"kind": "song", "elem": sd.elem, "t": 0.0, "target": sd.target, "idx": idx}
 	set_msg("%s plays %s!" % [p.name, sd.name])
 
+	charged.clear()
 	var hits: int = sd.get("hits", 1)
 	match sd.kind:
 		"dmg":
@@ -314,16 +326,24 @@ func do_song(sd: Dictionary, idx: int) -> void:
 			for e in targets:
 				if e == null:
 					continue
+				var eff := Data.elem_effect(str(sd.elem), str(e.get("elem", "")))
 				for i in hits:
 					var d := Data.song_damage(p_mus(), sd.pow, e_def(e), aff, rng)
+					d = maxi(1, roundi(float(d) * eff * boost))
 					hurt_enemy(e, d, Color(el.col))
 					total += d
+				# say so, or a number quietly changing by a factor of two and a
+				# half between fights reads as the game being unreliable
+				if eff > 1.0:
+					pop(e.x + 18, e.y - 4, "weak!", UI.COL_GOLD)
+				elif eff < 1.0:
+					pop(e.x + 18, e.y - 4, "resists", Color("#8880a0"))
 				if sd.has("status") and rng.randf() < sd.get("schance", 0.5):
 					apply_status(e, sd.status, false)
 			if sd.has("drain"):
 				heal_player(roundi(total * sd.drain))
 		"heal":
-			heal_player(Data.song_heal(p_mus(), sd.pow, aff))
+			heal_player(roundi(Data.song_heal(p_mus(), sd.pow, aff) * boost))
 			if sd.get("cure", false):
 				p_status = _keep_good(p_status)
 			if sd.has("status"):
@@ -360,6 +380,7 @@ func _pick_target(idx: int):
 
 
 func do_item(id: String) -> void:
+	charged.clear()
 	var p := Game.player
 	if p.items.get(id, 0) <= 0:
 		Audio.sfx("error")
@@ -450,6 +471,9 @@ func enemy_act(e: Dictionary) -> void:
 		pop(e.x + 18, e.y + 8, "+%d" % h, UI.COL_GREEN)
 	if sk.has("status") and rng.randf() < sk.get("chance", 0.4):
 		apply_status(null, sk.status, true)
+	# what you get for having taken it. The damage above landed in full.
+	for elem in Data.charges_from(str(e.get("elem", ""))):
+		charged[elem] = true
 	Audio.sfx("hit")
 	advance(0.76)
 
@@ -880,6 +904,9 @@ func _draw_ui() -> void:
 			if is_sel:
 				UI.cursor(self, LIST_X + 6, y - 1, t)
 			UI.rect(self, LIST_X + 16, y + 1, 5, 5, Color(el.col))
+			if charged.has(s.elem):
+				# a ring round the element dot: this one comes out stronger
+				UI.pring(self, LIST_X + 18, y + 3, 5.0 + sin(t * 7.0), UI.COL_GOLD)
 			var afford: bool = p.br >= s.cost
 			var label: String = s.name + (" +%d" % s.upgraded if s.upgraded > 0 else "")
 			PixelFont.draw(self, label, Vector2(LIST_X + 26, y),
