@@ -351,9 +351,13 @@ func _draw() -> void:
 	var tex := Maps.textures()
 	var x0 := int(floor(cam.x / TS))
 	var y0 := int(floor(cam.y / TS))
-	for ty in range(maxi(y0, top_row), y0 + int(UI.SCREEN_H / TS) + 2):
+	for ty in range(y0, y0 + int(UI.SCREEN_H / TS) + 2):
 		for tx in range(x0, x0 + int(UI.SCREEN_W / TS) + 2):
-			if Maps.is_tall(map.get_tile(tx, ty)):
+			var tch := map.get_tile(tx, ty)
+			# An overhanging tile is drawn here and nowhere else, so it is always
+			# queued. The rest only matter where they could cover somebody, which
+			# is at or below the highest character on screen.
+			if Maps.overhang(tch) > 0 or (Maps.is_tall(tch) and ty >= top_row):
 				# half a row back, so a tile on the same row as you is behind you
 				# rather than painted over your face. Something only occludes you
 				# if its base is nearer the camera than yours, not level with it.
@@ -363,10 +367,18 @@ func _draw() -> void:
 		match item.kind:
 			"tile":
 				var ch2 := map.get_tile(item.tx, item.ty)
-				var arr2: Array = tex.get(ch2, [])
-				if not arr2.is_empty():
-					draw_texture_rect(arr2[Maps.variant_of(item.tx, item.ty, arr2.size())],
-						Rect2(item.tx * TS - cam.x, item.ty * TS - cam.y, TS, TS), false)
+				var over := Maps.overhang(ch2)
+				if over > 0:
+					var tall: Array = Maps.tall_textures().get(ch2, [])
+					if not tall.is_empty():
+						draw_texture_rect(tall[Maps.variant_of(item.tx, item.ty, tall.size())],
+							Rect2(item.tx * TS - cam.x, item.ty * TS - cam.y - over,
+								TS, TS + over), false)
+				else:
+					var arr2: Array = tex.get(ch2, [])
+					if not arr2.is_empty():
+						draw_texture_rect(arr2[Maps.variant_of(item.tx, item.ty, arr2.size())],
+							Rect2(item.tx * TS - cam.x, item.ty * TS - cam.y, TS, TS), false)
 			"npc":
 				var n = item.ref
 				var g := Sprites.build(Sprites.NPC_LOOKS.get(n.get("look", "woman"), Sprites.NPC_LOOKS.woman))
@@ -387,7 +399,7 @@ func _draw() -> void:
 				# flipped again on top of that
 				UI.sprite(self, gd,
 					n.x * TS - cam.x, n.y * TS - cam.y - 24, 1, false,
-					false, 0, null, nlook)
+					false, 0, null, nlook, _light_at(n.x, n.y))
 			"boss":
 				var b = item.ref
 				Bestiary.draw_art(self, Data.BESTIARY[b.id].art,
@@ -411,10 +423,11 @@ func _draw() -> void:
 				var drawn: PackedByteArray = p.walk_grid(facing, frame) if walking \
 					else PackedByteArray()
 				if drawn.size() > 0:
-					UI.sprite(self, drawn, px, py, 1, false, false, 0, null, look)
+					UI.sprite(self, drawn, px, py, 1, false, false, 0, null, look,
+						_light_at(pos.x, pos.y))
 				else:
 					UI.sprite(self, p.view(facing), px, py, 1, false, walking, frame,
-						null, look)
+						null, look, _light_at(pos.x, pos.y))
 
 	if _is_cave():
 		_draw_cave_light(cam)
@@ -441,6 +454,10 @@ func _draw_tiles(cam: Vector2) -> void:
 	for ty in range(y0, y0 + rows):
 		for tx in range(x0, x0 + cols):
 			var ch := map.get_tile(tx, ty)
+			# a tree's square is ground; the tree itself is drawn later, taller,
+			# so that anything walking the row above passes behind its crown
+			if Maps.overhang(ch) > 0:
+				ch = "."
 			var arr: Array = tex.get(ch, tex.get(".", []))
 			if arr.is_empty():
 				continue
@@ -449,7 +466,20 @@ func _draw_tiles(cam: Vector2) -> void:
 			draw_texture_rect(arr[Maps.variant_of(tx, ty, arr.size())],
 				Rect2(sx, sy, TS, TS), false)
 			_blend_edges(tx, ty, sx, sy, ch)
+			# only real high ground: a lone boulder standing on grass has no
+			# cliff face, and giving it one cuts a grey wall across the lawn
+			if ch == "^":
+				_draw_cliff(tx, ty, sx, sy, ch)
 			_tile_edges(tx, ty, sx, sy, ch)
+
+
+## The light where somebody is standing: cool and a little darker if something
+## tall is throwing a shadow across that square. The same rule the ground uses,
+## so a figure and the ground they stand on agree about where the shade is.
+func _light_at(tx: int, ty: int) -> Color:
+	if Maps.is_tall(map.get_tile(tx, ty - 1)) or Maps.is_tall(map.get_tile(tx - 1, ty)):
+		return Color(0.74, 0.78, 0.92)
+	return Color(1, 1, 1)
 
 
 ## Contact shadow under anything solid, bright rim where water meets land. The
@@ -483,6 +513,29 @@ func _blend_edges(tx: int, ty: int, sx: float, sy: float, ch: String) -> void:
 				1: UI.rect(self, sx, sy + i, d, 1, col)
 				2: UI.rect(self, sx + i, sy + TS - d, 1, d, col)
 				3: UI.rect(self, sx + i, sy, 1, d, col)
+
+
+## The vertical face on the lower edge of high ground. A mountain seen from
+## straight above is a grey shape; the face is the part you would walk into, and
+## it is what puts height into the country. Drawn only where the ground below is
+## not also high, which is exactly where a cliff has one.
+func _draw_cliff(tx: int, ty: int, sx: float, sy: float, ch: String) -> void:
+	var below := map.get_tile(tx, ty + 1)
+	if below == ch or Maps.is_tall(below):
+		return
+	var face := 18
+	var top := sy + TS - face
+	var rock := Color("#6b645a") if ch == "^" else Color("#5f5852")
+	UI.rect(self, sx, top, TS, 2, rock.lightened(0.32))       # the lip catches light
+	UI.rect(self, sx, top + 2, TS, face - 2, rock.darkened(0.18))
+	# striations down the face, so it reads as rock rather than as a band
+	for i in 7:
+		var gx := sx + 2 + int(Maps.hash2(tx * 7 + i, ty) * float(TS - 6))
+		var gh := 5 + int(Maps.hash2(tx, ty * 5 + i) * float(face - 7))
+		UI.rect(self, gx, top + 3, 2, gh, rock.darkened(0.36))
+		UI.rect(self, gx + 2, top + 3, 1, gh, rock.lightened(0.12))
+	UI.rect(self, sx, sy + TS - 4, TS, 4, rock.darkened(0.5))  # dark at the foot
+	UI.rect(self, sx, sy + TS - 1, TS, 1, Color(0, 0, 0, 0.45))
 
 
 func _tile_edges(tx: int, ty: int, sx: float, sy: float, ch: String) -> void:

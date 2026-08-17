@@ -42,6 +42,84 @@ static func is_tall(ch: String) -> bool:
 	return TALL.get(ch, false)
 
 
+## Tiles drawn taller than their own square, and by how much they rise above it.
+## The square itself gets ground drawn in it and the object is drawn over the
+## top, lifted, in the depth-sorted pass.
+const OVERHANG := {"T": 24, "P": 24}
+
+static func overhang(ch: String) -> int:
+	return OVERHANG.get(ch, 0)
+
+
+static var _tall_tex := {}
+
+## The taller drawings, one texture per variant, 48 wide by 72 high.
+static func tall_textures() -> Dictionary:
+	if not _tall_tex.is_empty():
+		return _tall_tex
+	for ch in OVERHANG:
+		var arr: Array = []
+		for v in variant_count(ch):
+			arr.append(ImageTexture.create_from_image(_tall_tile_image(ch, v)))
+		_tall_tex[ch] = arr
+	return _tall_tex
+
+
+## A tree with its roots at the bottom of the image and its crown in the extra
+## height above. The bottom 48 rows are the square it stands in; everything
+## above that hangs over the square behind it.
+static func _tall_tile_image(ch: String, v: int) -> Image:
+	# Indexing a Dictionary hands back a Variant, and anything built from a
+	# Variant cannot have its type inferred -- so these are pinned rather than
+	# left to :=, which is what the parser was objecting to.
+	var over: int = OVERHANG[ch]
+	var img := Image.create(TS, TS + over, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	var r := func(i: int) -> float: return hash2(v * 31 + i, v * 17 + i * 7)
+	var base: int = TS + over                  # the bottom of the image
+	if ch == "T":
+		var tx := 21 + int(r.call(1) * 7)
+		var cw := 16 + int(r.call(2) * 7)
+		var ct: int = base - 44 + int(r.call(3) * 7)
+		_ellipse(img, tx + 4, base - 5, cw + 2, 6, Color(0, 0, 0, 0.22))
+		_fill(img, tx, ct + 6, 7, base - 8 - ct, Color("#4a3018"))
+		_fill(img, tx, ct + 6, 3, base - 8 - ct, Color("#6b4823"))
+		_fill(img, tx + 6, ct + 6, 1, base - 8 - ct, Color("#33200f"))
+		_fill(img, tx - 5, ct + 11, 6, 2, Color("#4a3018"))
+		_fill(img, tx + 6, ct + 16, 6, 2, Color("#4a3018"))
+		_disc(img, tx + 3, ct, cw + 2, Color("#1d4423"))
+		for k in 5:
+			_disc(img, tx + 3 + int((r.call(k + 10) - 0.5) * cw * 1.5),
+				ct + int((r.call(k + 20) - 0.5) * cw), 7 + int(r.call(k + 30) * 5),
+				Color("#2b6231"))
+		for k in 4:
+			_disc(img, tx + int((r.call(k + 40) - 0.5) * cw),
+				ct - 3 + int((r.call(k + 45) - 0.5) * cw * 0.8),
+				4 + int(r.call(k + 50) * 4), Color("#3a7a3e"))
+		_disc(img, tx - cw + 6, ct - cw + 7, 6, Color("#4d9350"))
+		_fill(img, tx - cw + 3, ct - cw + 4, 6, 3, Color("#63a862"))
+		_dith(img, tx - cw + 3, ct + 5, cw * 2 - 6, 9,
+			Color("#1d4423"), Color("#2b6231"))
+	else:
+		var px := 21 + int(r.call(1) * 7)
+		var top := 2 + int(r.call(2) * 7)
+		var spread := 6 + int(r.call(3) * 3)
+		_ellipse(img, px + 6, base - 3, 15, 4, Color(0, 0, 0, 0.22))
+		_fill(img, px, base - 14, 7, 12, Color("#42301a"))
+		_fill(img, px, base - 14, 3, 12, Color("#63421f"))
+		for i in 6:
+			var wd := 9 + i * spread
+			var yy := top + i * 10
+			var xx := px + 3 - (wd >> 1)
+			_fill(img, xx, yy, wd, 11, Color("#1b4522"))
+			_fill(img, xx, yy, wd, 3, Color("#2e6a33"))
+			_fill(img, xx, yy, maxi(1, int(wd / 2)), 2, Color("#41894a"))
+			_fill(img, xx, yy + 10, wd, 1, Color("#12301a"))
+		_fill(img, px + 1, top - 3, 5, 7, Color("#2e6a33"))
+		_fill(img, px + 1, top - 3, 2, 5, Color("#41894a"))
+	return img
+
+
 static var _atlas := {}
 
 

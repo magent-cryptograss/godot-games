@@ -20,8 +20,37 @@ func _ready() -> void:
 	World.build_all()
 	field = preload("res://scenes/Field.tscn").instantiate()
 	add_child(field)
-	field.enter("world", World.town_gate + Vector2i(0, -2))
+	# the town, which has a ring of trees round it -- the cliff finder is kept
+	# below for when the rock faces are what needs looking at
+	field.enter("world", World.town_gate + Vector2i(0, -3))
 	field.msg = null
+
+
+## Somewhere with a cliff edge in shot: high ground with walkable ground under
+## it. Hunted for rather than named, because a coordinate picked by eye lands in
+## a boulder field and photographs the wrong thing entirely -- which is exactly
+## what happened the first time.
+func _find_cliff() -> Vector2i:
+	var m: Maps.GameMap = World.build_all()["world"]
+	for y in range(20, m.h - 20, 3):
+		for x in range(20, m.w - 20, 3):
+			if m.get_tile(x, y) != "^":
+				continue
+			# want a run of cliff with open ground below it
+			var run := 0
+			for dx in range(-2, 3):
+				if m.get_tile(x + dx, y) == "^":
+					run += 1
+			if run < 3:
+				continue
+			if Maps.is_solid(m.get_tile(x, y + 1)):
+				continue
+			print("  cliff at %d,%d" % [x, y])
+			return Vector2i(x, y + 2)
+	# say so rather than quietly photographing somewhere else, which is what
+	# happened the first time and cost a round of looking at the wrong picture
+	print("  NO CLIFF FOUND -- falling back to the town")
+	return World.town_gate
 
 
 func _process(_d: float) -> void:

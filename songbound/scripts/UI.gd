@@ -129,9 +129,12 @@ const LEG_Y := 57
 ##
 ## Four frames: stand, one leg forward, stand, the other leg forward, with a
 ## one-pixel bob on the upper body as the weight shifts.
+## tint replaces the colour outright, for a hit flash. mul multiplies it, for
+## the light a figure is standing in -- a replaced colour loses the drawing, a
+## multiplied one keeps every fold and only changes what is falling on it.
 static func sprite(ci: CanvasItem, g: PackedByteArray, x: float, y: float, sc: int = 1,
 		flip: bool = false, walking: bool = false, frame: int = 0, tint = null,
-		facing: int = FACE_FRONT) -> void:
+		facing: int = FACE_FRONT, mul = null) -> void:
 	var bob := 1 if walking and (frame % 4 == 1 or frame % 4 == 3) else 0
 	var leg := 0
 	if walking:
@@ -146,6 +149,8 @@ static func sprite(ci: CanvasItem, g: PackedByteArray, x: float, y: float, sc: i
 			if v == 0:
 				continue
 			var c: Color = tint if tint != null else Sprites.PALETTE[v]
+			if tint == null and mul != null:
+				c = Color(c.r * mul.r, c.g * mul.g, c.b * mul.b, c.a)
 			var off := walk_offset(xx, yy, leg, bob, facing)
 			ci.draw_rect(Rect2(round(x + (xx + off.x) * sc), round(y + (yy + off.y) * sc),
 				sc, sc), c, true)
