@@ -35,6 +35,10 @@ var p_status := {}
 ## have taken their next action -- being hit twice before acting stacks up the
 ## charges rather than replacing them.
 var charged := {}
+
+## How far through the drawn swing we are, or below zero for not swinging.
+var atk_t := -1.0
+const ATK_FRAME_TIME := 0.085
 var p_flash := 0.0
 var p_shake := 0.0
 var fx := {}
@@ -184,6 +188,25 @@ func heal_player(amount: int) -> void:
 	pop(68, 130, "+%d" % (Game.player.hp - before), UI.COL_GREEN)
 
 
+## Begin the drawn swing, if there is one to play.
+func _start_swing() -> void:
+	if Game.player != null and Game.player.attack_count() > 0:
+		atk_t = 0.0
+
+
+## The picture to draw the player with right now.
+func _player_grid() -> PackedByteArray:
+	var p := Game.player
+	if atk_t >= 0.0:
+		var n := p.attack_count()
+		if n > 0:
+			var i := clampi(int(atk_t / ATK_FRAME_TIME), 0, n - 1)
+			var a := p.attack_grid(i + 1)
+			if a.size() > 0:
+				return a
+	return p.battle_grid()
+
+
 func _keep_good(bag: Dictionary) -> Dictionary:
 	var out := {}
 	for k in bag:
@@ -296,6 +319,7 @@ func do_strike(e: Dictionary) -> void:
 	set_msg("A clean hit!" if crit else "You strike %s." % e.name)
 	Audio.sfx("crit" if crit else "hit")
 	fx = {"kind": "strike", "t": 0.0, "x": e.x + 18, "y": e.y + 16}
+	_start_swing()
 	advance(0.65)
 
 
@@ -315,6 +339,7 @@ func do_song(sd: Dictionary, idx: int) -> void:
 		set_msg("%s plays %s, charged!" % [p.name, sd.name])
 	Audio.play_song(sd.elem, Data.instrument(p.inst), str(sd.get("tune", "")))
 	fx = {"kind": "song", "elem": sd.elem, "t": 0.0, "target": sd.target, "idx": idx}
+	_start_swing()
 	set_msg("%s plays %s!" % [p.name, sd.name])
 
 	charged.clear()
@@ -542,6 +567,10 @@ func _process(dt: float) -> void:
 	shake = maxf(0.0, shake - dt * 30.0)
 	p_flash = maxf(0.0, p_flash - dt)
 	p_shake = maxf(0.0, p_shake - dt)
+	if atk_t >= 0.0:
+		atk_t += dt
+		if atk_t > Game.player.attack_count() * ATK_FRAME_TIME:
+			atk_t = -1.0
 	for e in enemies:
 		e["flash"] = maxf(0.0, e.flash - dt)
 		e["shk"] = maxf(0.0, e.shk - dt)
@@ -827,9 +856,12 @@ func _draw_player() -> void:
 	var psx := UI.SCREEN_W * 0.14 + pxo
 	var psy := UI.SCREEN_H * 0.42 + sin(t * 2.4) * 1.0
 	UI.shadow(self, psx + 24, psy + 64, 18, 4)
-	UI.sprite(self, Game.player.spr, psx, psy, 2, false, true, int(t * 5.0))
+	# a drawn attack frame is a pose in its own right, so it is not bobbed
+	var pg := _player_grid()
+	var swinging: bool = atk_t >= 0.0
+	UI.sprite(self, pg, psx, psy, 2, false, not swinging, int(t * 5.0))
 	if p_flash > 0.0:
-		UI.sprite(self, Game.player.spr, psx, psy, 2, false, false, 0,
+		UI.sprite(self, pg, psx, psy, 2, false, false, 0,
 			Color(1, 0.38, 0.38, clampf(p_flash / 0.22, 0.0, 1.0) * 0.6))
 
 

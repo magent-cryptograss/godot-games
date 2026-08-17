@@ -121,6 +121,74 @@ func _check_walk_frames() -> void:
 	c.queue_free()
 
 
+## The fighting page: a stance and up to ten attack frames, plus copy and paste.
+func _check_battle_frames() -> void:
+	var c := preload("res://scenes/Creation.tscn").instantiate()
+	add_child(c)
+	c.set_process(false)
+	c.reset()
+	c.spr = Sprites.build(Sprites.PRESETS[2].opts)
+	c._front_changed()
+
+	_expect(c.BATTLE_SLOTS.size() == 11,
+		"a stance and ten attack frames (%d)" % c.BATTLE_SLOTS.size())
+	_expect(c.page_slots().size() == 16, "the walking page holds sixteen")
+	c.set_key("battle")
+	_expect(c.page == "battle" and c.page_slots().size() == 11,
+		"the fighting page holds eleven")
+
+	# stepping wraps round the page it is on rather than falling off the end
+	c.set_key("attack10")
+	c.step_slot(1)
+	_expect(c.cur_key() == "battle", "stepping past the last wraps to the first (%s)" % c.cur_key())
+
+	# an untouched stance is the front view, and an untouched attack is the
+	# stance -- so drawing a swing is moving an arm, not starting from nothing
+	c.set_key("battle")
+	var stance_painted := 0
+	for b in c.spr:
+		if b != 0:
+			stance_painted += 1
+	_expect(stance_painted > 100, "an untouched stance is not empty (%d)" % stance_painted)
+	_expect(_fingerprint(c._key_grid("attack1")) == _fingerprint(c._key_grid("battle")),
+		"an untouched attack frame starts from the stance")
+
+	# copy and paste
+	c.set_key("attack1")
+	c.cx = 10
+	c.cy = 20
+	c.colour = 14
+	c.paint(14)
+	var drawn: PackedByteArray = c.spr.duplicate()
+	c.clip = c.spr.duplicate()
+	c.set_key("attack2")
+	c.hand["attack2"] = true
+	c.spr = c.clip.duplicate()
+	_expect(_fingerprint(c.spr) == _fingerprint(drawn), "paste puts the copy on the new canvas")
+
+	var carried: Dictionary = c.all_frames()
+	_expect(carried.has("attack1") and carried.has("attack2"),
+		"drawn attack frames are carried (%s)" % str(carried.keys()))
+	_expect(not carried.has("battle"),
+		"an untouched stance is not carried (%s)" % str(carried.keys()))
+
+	# ---- and the swing-length rule ----------------------------------------
+	var p := Game.new_game("Fight", "fiddle", c._usable_sprite(), "fire",
+		c.all_views(), c.all_frames())
+	_expect(p.attack_count() == 2, "two drawn frames make a two-frame swing (%d)" % p.attack_count())
+	_expect(p.battle_grid().size() > 0, "there is always something to stand as")
+
+	# a gap stops the count: frames 1, 2 and 7 is a two-frame swing, not five
+	# frames of nothing followed by a twitch
+	p.frames["attack7"] = drawn.duplicate()
+	_expect(p.attack_count() == 2,
+		"a gap ends the swing rather than being played through (%d)" % p.attack_count())
+
+	p.frames.erase("attack1")
+	_expect(p.attack_count() == 0, "no first frame means no swing (%d)" % p.attack_count())
+	c.queue_free()
+
+
 ## The walk cycle, checked as arithmetic rather than by watching it.
 ##
 ## The old cycle split the figure at column 8 and shifted everything either side
@@ -275,6 +343,7 @@ func _process(_d: float) -> void:
 			_check_four_facings()
 			_check_walk()
 			_check_walk_frames()
+			_check_battle_frames()
 		1: _shot("title")
 		2:
 			# make a character the way creation would, then walk into the world

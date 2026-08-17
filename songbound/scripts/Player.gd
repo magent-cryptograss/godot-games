@@ -11,10 +11,16 @@ var back: PackedByteArray         # facing up
 var side_l: PackedByteArray       # facing left
 var side_r: PackedByteArray       # facing right
 
-## Hand-drawn walking frames, keyed "down1" through "right3". A facing with no
-## entry here is animated the old way, by shifting the standing drawing, so an
-## undrawn walk still walks.
+## Every hand-drawn animation frame: the walk, keyed "down1" through "right3";
+## the battle stance, keyed "battle"; and the swing, keyed "attack1" through
+## "attack10". Only what somebody actually drew is in here -- an absent walk
+## frame is animated the old way by shifting the standing drawing, and an absent
+## attack frame is simply not played.
 var frames := {}
+
+## How many attack frames may be drawn. One is enough to have a swing; the rest
+## are there for anybody who wants to animate it properly.
+const MAX_ATTACK := 10
 
 var lv: int = 1
 var xp: int = 0
@@ -67,6 +73,30 @@ func walk_grid(facing: String, frame: int) -> PackedByteArray:
 		return PackedByteArray()
 	var g: PackedByteArray = frames.get("%s%d" % [facing, frame], PackedByteArray())
 	return g if g.size() == Sprites.W * Sprites.H else PackedByteArray()
+
+
+## How the character stands in a fight, or the front view if nobody drew one.
+func battle_grid() -> PackedByteArray:
+	var g: PackedByteArray = frames.get("battle", PackedByteArray())
+	return g if g.size() == Sprites.W * Sprites.H else spr
+
+
+## One frame of the swing, or nothing if it was never drawn.
+func attack_grid(i: int) -> PackedByteArray:
+	var g: PackedByteArray = frames.get("attack%d" % i, PackedByteArray())
+	return g if g.size() == Sprites.W * Sprites.H else PackedByteArray()
+
+
+## How long the swing runs for. Counted from the first frame and stopping at the
+## first gap, so drawing frames 1, 2 and 7 gives a two-frame swing rather than
+## five frames of nothing followed by a twitch.
+func attack_count() -> int:
+	var n := 0
+	for i in range(1, MAX_ATTACK + 1):
+		if attack_grid(i).is_empty():
+			break
+		n += 1
+	return n
 
 
 ## Fill in whichever views were not drawn by hand.
