@@ -116,6 +116,8 @@ func _layout() -> void:
 			e["x"] = w * 0.41 + i * 74
 			e["y"] = 66.0 + (i % 2) * 44
 		e["ax"] = 0.0
+		# what the player has found out about this one, elem -> true if weak
+		e["known"] = {}
 		e["flash"] = 0.0
 		e["shk"] = 0.0
 		e["fade"] = 1.0
@@ -352,6 +354,8 @@ func do_song(sd: Dictionary, idx: int) -> void:
 				if e == null:
 					continue
 				var eff := Data.elem_effect(str(sd.elem), str(e.get("elem", "")))
+				if eff != 1.0:
+					e.known[sd.elem] = eff > 1.0
 				for i in hits:
 					var d := Data.song_damage(p_mus(), sd.pow, e_def(e), aff, rng)
 					d = maxi(1, roundi(float(d) * eff * boost))
@@ -833,6 +837,8 @@ func _draw_enemies() -> void:
 		for k in e.st:
 			UI.rect(self, sxp, ey - 6, 4, 4, Color(Data.STATUS[k].col))
 			sxp += 5
+		if not e.dead:
+			_draw_known(e, ex, ey)
 
 	if phase == "target":
 		var a := alive()
@@ -847,6 +853,33 @@ func _draw_enemies() -> void:
 			PixelFont.draw_centered(self, e.name, e.x + 18, e.y - 26, UI.COL_GOLD, {"outline": UI.COL_INK})
 			UI.bar(self, e.x - 2, e.y - 18, 40, 3, float(e.hp) / float(e.maxhp),
 				Color("#f06848"), Color("#a01818"))
+
+
+## The row of marks under a creature: one square per element the player has
+## tried and got a reaction from, chevron up for weak and down for resisted.
+func _draw_known(e: Dictionary, ex: float, ey: float) -> void:
+	var known: Dictionary = e.get("known", {})
+	if known.is_empty():
+		return
+	var n := known.size()
+	var x := ex + 18.0 - (n * 9 - 2) / 2.0
+	var y := ey + 40.0
+	for elem in known:
+		var weak: bool = bool(known[elem])
+		var col := Color(Data.element(elem).col)
+		UI.rect(self, x - 1, y - 1, 9, 9, Color(0.05, 0.04, 0.09, 0.75))
+		UI.rect(self, x, y, 7, 7, col)
+		UI.rect(self, x, y, 7, 2, col.lightened(0.35))
+		# a chevron above for weak, below for resisted, so the two are told
+		# apart by shape and not only by which way a colour leans
+		var mark := UI.COL_GOLD if weak else Color("#8c96b4")
+		if weak:
+			UI.rect(self, x + 2, y - 4, 3, 1, mark)
+			UI.rect(self, x + 1, y - 3, 5, 1, mark)
+		else:
+			UI.rect(self, x + 1, y + 8, 5, 1, mark)
+			UI.rect(self, x + 2, y + 9, 3, 1, mark)
+		x += 9
 
 
 func _draw_player() -> void:
