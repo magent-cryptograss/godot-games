@@ -270,6 +270,26 @@ static func build(o: Dictionary) -> PackedByteArray:
 	return shade(s)
 
 
+## One step of the automatic walk, baked into a grid.
+##
+## The game animates an undrawn walk by shifting pixels as it draws. This does
+## the same shift into a new grid instead, so the editor can show what the
+## automatic frame looks like -- and so somebody can start from it and change
+## the bits they do not like rather than from a blank canvas.
+static func walk_frame(g: PackedByteArray, frame: int, facing: int) -> PackedByteArray:
+	var out := blank()
+	var bob := 1 if (frame % 4 == 1 or frame % 4 == 3) else 0
+	var leg := UI.STRIDE if frame % 4 == 1 else (-UI.STRIDE if frame % 4 == 3 else 0)
+	for y in H:
+		for x in W:
+			var v := get_px(g, x, y)
+			if v == 0:
+				continue
+			var off := UI.walk_offset(x, y, leg, bob, facing)
+			set_px(out, x + off.x, y + off.y, v)
+	return out
+
+
 ## Flip a grid left to right.
 static func mirrored(s: PackedByteArray) -> PackedByteArray:
 	var m := blank()

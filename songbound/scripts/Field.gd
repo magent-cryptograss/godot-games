@@ -380,8 +380,16 @@ func _draw() -> void:
 					look = UI.FACE_LEFT
 				elif facing == "right":
 					look = UI.FACE_RIGHT
-				UI.sprite(self, p.view(facing), px, py, 1, false, walking, frame,
-					null, look)
+				# A frame the player drew is used exactly as drawn; one they did
+				# not falls back to shifting the standing picture, which is how
+				# every walk worked before there were frames to draw.
+				var drawn: PackedByteArray = p.walk_grid(facing, frame) if walking \
+					else PackedByteArray()
+				if drawn.size() > 0:
+					UI.sprite(self, drawn, px, py, 1, false, false, 0, null, look)
+				else:
+					UI.sprite(self, p.view(facing), px, py, 1, false, walking, frame,
+						null, look)
 
 	if _is_cave():
 		_draw_cave_light(cam)

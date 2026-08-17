@@ -11,6 +11,11 @@ var back: PackedByteArray         # facing up
 var side_l: PackedByteArray       # facing left
 var side_r: PackedByteArray       # facing right
 
+## Hand-drawn walking frames, keyed "down1" through "right3". A facing with no
+## entry here is animated the old way, by shifting the standing drawing, so an
+## undrawn walk still walks.
+var frames := {}
+
 var lv: int = 1
 var xp: int = 0
 # 55 starting health meant the opening fight cost more than half of it, which
@@ -56,6 +61,14 @@ func view(facing: String) -> PackedByteArray:
 	return spr
 
 
+## The drawing for one step of a walk, or nothing if that frame was never drawn.
+func walk_grid(facing: String, frame: int) -> PackedByteArray:
+	if frame <= 0:
+		return PackedByteArray()
+	var g: PackedByteArray = frames.get("%s%d" % [facing, frame], PackedByteArray())
+	return g if g.size() == Sprites.W * Sprites.H else PackedByteArray()
+
+
 ## Fill in whichever views were not drawn by hand.
 func derive_views() -> void:
 	if back.size() == 0:
@@ -64,6 +77,13 @@ func derive_views() -> void:
 		side_r = Sprites.side_view(spr)
 	if side_l.size() == 0:
 		side_l = Sprites.mirrored(side_r)
+
+
+func _frames_to_dict() -> Dictionary:
+	var out := {}
+	for key in frames:
+		out[key] = Array(frames[key])
+	return out
 
 
 func mods() -> Dictionary:
@@ -188,6 +208,7 @@ func to_dict() -> Dictionary:
 	return {
 		"v": 2, "name": name, "inst": inst, "spr": Array(spr),
 		"back": Array(back), "side_l": Array(side_l), "side_r": Array(side_r),
+		"frames": _frames_to_dict(),
 		"lv": lv, "xp": xp, "base": base, "grow": grow, "hp": hp, "br": br,
 		"songs": songs, "affinity": affinity, "upgrades": upgrades,
 		"items": items, "gold": gold, "flags": flags,
@@ -214,6 +235,12 @@ static func from_dict(d: Dictionary) -> Player:
 	for key in ["back", "side_l", "side_r"]:
 		if p.get(key).size() != Sprites.W * Sprites.H:
 			p.set(key, PackedByteArray())
+	for key in d.get("frames", {}):
+		var fb := PackedByteArray()
+		for val in d.frames[key]:
+			fb.append(int(val))
+		if fb.size() == Sprites.W * Sprites.H:
+			p.frames[key] = fb
 	p.derive_views()
 	p.lv = int(d.get("lv", 1))
 	p.xp = int(d.get("xp", 0))

@@ -59,6 +59,68 @@ func _check_blank_sprite() -> void:
 	c.queue_free()
 
 
+## Sixteen canvases: four standing and twelve walking.
+##
+## The point of the derivation rules is that nobody has to draw twelve extra
+## pictures, and that anybody who draws one gets to keep it. Both halves of that
+## are easy to break and neither would fail loudly.
+func _check_walk_frames() -> void:
+	var c := preload("res://scenes/Creation.tscn").instantiate()
+	add_child(c)
+	c.set_process(false)
+	c.reset()
+	c.spr = Sprites.build(Sprites.PRESETS[3].opts)
+	c._front_changed()
+
+	_expect(c.DIRS.size() * c.FRAMES == 16,
+		"there are sixteen canvases (%d)" % [c.DIRS.size() * c.FRAMES])
+
+	# an untouched walk frame is the standing drawing, shifted -- so it must
+	# differ from standing, and must not be empty
+	var stand: PackedByteArray = c._slot_grid("down", 0)
+	var step: PackedByteArray = c._slot_grid("down", 1)
+	_expect(_fingerprint(step) != _fingerprint(stand),
+		"an automatic walk frame differs from standing")
+	var painted := 0
+	for b in step:
+		if b != 0:
+			painted += 1
+	_expect(painted > 100, "an automatic walk frame is not empty (%d pixels)" % painted)
+
+	# frames 1 and 3 are opposite steps, so they must differ from each other
+	_expect(_fingerprint(c._slot_grid("down", 1)) != _fingerprint(c._slot_grid("down", 3)),
+		"the two striding frames are not the same picture")
+
+	# nothing drawn yet, so nothing is carried in the save
+	_expect(c.all_frames().is_empty(),
+		"undrawn walk frames are not saved (%d carried)" % c.all_frames().size())
+
+	# draw on one, and it is kept and carried
+	c.set_slot("left", 2)
+	c.cx = 8
+	c.cy = 20
+	c.colour = 14
+	c.paint(14)
+	var mine: PackedByteArray = c.grids["left2"].duplicate()
+	c.set_slot("down", 0)
+	c.set_slot("left", 2)
+	_expect(_fingerprint(c.grids["left2"]) == _fingerprint(mine),
+		"a walk frame you drew on is not regenerated")
+	var carried: Dictionary = c.all_frames()
+	_expect(carried.has("left2") and carried.size() == 1,
+		"only the drawn frame is carried (%s)" % str(carried.keys()))
+
+	# and the player hands it back for that facing and step, and nothing for the
+	# ones nobody drew
+	var p := Game.new_game("Frames", "fiddle", c._usable_sprite(), "fire",
+		c.all_views(), c.all_frames())
+	_expect(p.walk_grid("left", 2).size() > 0, "the drawn frame reaches the player")
+	_expect(p.walk_grid("left", 1).is_empty(),
+		"an undrawn frame is left for the animator to shift")
+	_expect(p.walk_grid("down", 0).is_empty(), "standing is not a walk frame")
+	c.queue_free()
+
+
 ## The walk cycle, checked as arithmetic rather than by watching it.
 ##
 ## The old cycle split the figure at column 8 and shifted everything either side
@@ -141,20 +203,20 @@ func _check_four_facings() -> void:
 		"facing left is facing right, mirrored")
 
 	# and a facing the player has drawn on is theirs and stays theirs
-	c.set_dir("left")
+	c.set_slot("left", 0)
 	c.cx = 6
 	c.cy = 6
 	c.colour = 14
 	c.paint(14)
 	var mine: PackedByteArray = c.grids["left"].duplicate()
-	c.set_dir("down")
-	c.set_dir("up")
-	c.set_dir("left")
+	c.set_slot("down", 0)
+	c.set_slot("up", 0)
+	c.set_slot("left", 0)
 	_expect(_fingerprint(c.grids["left"]) == _fingerprint(mine),
 		"a facing you have drawn on is not regenerated")
 
 	# while an untouched one follows the front drawing
-	c.set_dir("down")
+	c.set_slot("down", 0)
 	c.spr = Sprites.build(Sprites.PRESETS[6].opts)
 	c._front_changed()
 	var before := _fingerprint(c.all_views()["up"])
@@ -212,6 +274,7 @@ func _process(_d: float) -> void:
 			_check_blank_sprite()
 			_check_four_facings()
 			_check_walk()
+			_check_walk_frames()
 		1: _shot("title")
 		2:
 			# make a character the way creation would, then walk into the world

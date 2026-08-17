@@ -18,8 +18,12 @@ signal level_gained(levels: Array)
 
 
 func new_game(p_name: String, inst_id: String, spr: PackedByteArray, first_element: String,
-		views: Dictionary = {}) -> Player:
+		views: Dictionary = {}, frames: Dictionary = {}) -> Player:
 	var p := Player.new(p_name, inst_id, spr)
+	for key in frames:
+		var g: PackedByteArray = frames[key]
+		if g.size() == Sprites.W * Sprites.H:
+			p.frames[key] = g
 	# whatever the player drew by hand; the rest are filled in from the front
 	p.back = views.get("up", PackedByteArray())
 	p.side_l = views.get("left", PackedByteArray())

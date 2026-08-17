@@ -32,7 +32,10 @@ var undo_stack: Array = []
 
 ## One drawing per facing. spr is whichever of these is currently being edited.
 const DIRS := ["down", "up", "left", "right"]
+## Standing, then the three steps of the walk.
+const FRAMES := 4
 var dir := "down"
+var frame := 0
 var grids := {}
 ## Which facings the player has actually touched. An untouched one is rebuilt
 ## from the front drawing whenever it is opened, so changing your mind about
@@ -72,8 +75,12 @@ func reset() -> void:
 	spr = Sprites.build({"outlineOnly": true})
 	undo_stack.clear()
 	dir = "down"
+	frame = 0
 	grids = {"down": spr}
-	hand = {"down": false, "up": false, "left": false, "right": false}
+	hand = {}
+	for d in DIRS:
+		for f in FRAMES:
+			hand[_slot(d, f)] = false
 	preset_idx = 0
 	inst_idx = 0
 	elem_idx = 0
@@ -110,7 +117,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				KEY_E: colour = wrapi(colour + 1, 0, Sprites.PALETTE.size())
 				KEY_F:
 					push_undo()
-					hand[dir] = true
+					hand[_slot(dir, frame)] = true
 					Sprites.flood_fill(spr, cx, cy, colour)
 					if mirror:
 						Sprites.flood_fill(spr, Sprites.W - 1 - cx, cy, colour)
@@ -120,17 +127,21 @@ func _unhandled_input(event: InputEvent) -> void:
 						spr = undo_stack.pop_back()
 				KEY_R:
 					push_undo()
-					hand[dir] = true
+					hand[_slot(dir, frame)] = true
 					spr = Sprites.blank()
 				KEY_T:
 					push_undo()
-					hand[dir] = true
+					hand[_slot(dir, frame)] = true
 					tmpl = (tmpl + 1) % _templates.size()
 					spr = _templates[tmpl].call()
-				KEY_1: set_dir("down")
-				KEY_2: set_dir("up")
-				KEY_3: set_dir("left")
-				KEY_4: set_dir("right")
+				KEY_1: set_slot("down", frame)
+				KEY_2: set_slot("up", frame)
+				KEY_3: set_slot("left", frame)
+				KEY_4: set_slot("right", frame)
+				KEY_5: set_slot(dir, 0)
+				KEY_6: set_slot(dir, 1)
+				KEY_7: set_slot(dir, 2)
+				KEY_8: set_slot(dir, 3)
 				KEY_ENTER, KEY_KP_ENTER: finish_editor()
 				KEY_ESCAPE: step = "spritechoice"
 
@@ -213,9 +224,12 @@ func _click() -> bool:
 func _front_changed() -> void:
 	grids["down"] = spr
 	dir = "down"
+	frame = 0
 	for d in DIRS:
-		if d != "down" and not bool(hand.get(d, false)):
-			grids.erase(d)
+		for f in FRAMES:
+			var key := _slot(d, f)
+			if key != "down" and not bool(hand.get(key, false)):
+				grids.erase(key)
 
 
 func enter_sprite_mode() -> void:
@@ -267,24 +281,53 @@ func up_gallery(dt: float) -> void:
 		step = "spritechoice"
 
 
-## Move to another facing, saving the one being left and rebuilding the one
+const FRAME_NAMES := ["stand", "walk 1", "walk 2", "walk 3"]
+
+
+## Whatever should be shown for a canvas: what was drawn on it, or the automatic
+## version if nobody has touched it.
+func _slot_grid(d: String, f: int) -> PackedByteArray:
+	var key := _slot(d, f)
+	if bool(hand.get(key, false)) and grids.has(key):
+		return grids[key]
+	return _derive(d, f)
+
+
+## The name of one of the sixteen canvases: a facing, and which step of its walk.
+static func _slot(d: String, f: int) -> String:
+	return d if f == 0 else "%s%d" % [d, f]
+
+
+## Move to another canvas, saving the one being left and rebuilding the one
 ## being opened if it has never been touched.
-func set_dir(d: String) -> void:
-	if d == dir:
+func set_slot(d: String, f: int) -> void:
+	if d == dir and f == frame:
 		return
-	grids[dir] = spr
+	grids[_slot(dir, frame)] = spr
 	dir = d
-	if d != "down" and not bool(hand.get(d, false)):
-		grids[d] = _derive(d)
-	if not grids.has(d):
-		grids[d] = _derive(d)
-	spr = grids[d]
+	frame = f
+	var key := _slot(d, f)
+	if not bool(hand.get(key, false)) or not grids.has(key):
+		grids[key] = _derive(d, f)
+	spr = grids[key]
 	undo_stack.clear()
 	Audio.sfx("cursor")
 
 
-func _derive(d: String) -> PackedByteArray:
+## What a canvas looks like if nobody has drawn on it: the standing facings come
+## from the front drawing, and the walk frames come from shifting the standing
+## drawing of their own facing, which is how the game animates them anyway.
+func _derive(d: String, f: int = 0) -> PackedByteArray:
 	var front: PackedByteArray = grids.get("down", spr)
+	if f > 0:
+		var stand: PackedByteArray = grids[d] if (bool(hand.get(d, false)) and grids.has(d)) \
+			else _derive(d, 0)
+		var look := UI.FACE_FRONT
+		if d == "left":
+			look = UI.FACE_LEFT
+		elif d == "right":
+			look = UI.FACE_RIGHT
+		return Sprites.walk_frame(stand, f, look)
 	match d:
 		"up":
 			return Sprites.back_view(front)
@@ -295,14 +338,28 @@ func _derive(d: String) -> PackedByteArray:
 	return front.duplicate()
 
 
-## Every drawing, with the untouched facings filled in from the front one.
+## The four standing drawings, with untouched ones filled in from the front.
 func all_views() -> Dictionary:
-	grids[dir] = spr
+	grids[_slot(dir, frame)] = spr
 	var out := {}
 	for d in DIRS:
 		if d == "down":
 			continue
-		out[d] = grids[d] if bool(hand.get(d, false)) and grids.has(d) else _derive(d)
+		out[d] = grids[d] if bool(hand.get(d, false)) and grids.has(d) else _derive(d, 0)
+	return out
+
+
+## Only the walk frames somebody actually drew. An undrawn one is left out
+## entirely so the game animates it by shifting, rather than carrying twelve
+## copies of a shift around in every save file.
+func all_frames() -> Dictionary:
+	grids[_slot(dir, frame)] = spr
+	var out := {}
+	for d in DIRS:
+		for f in range(1, FRAMES):
+			var key := _slot(d, f)
+			if bool(hand.get(key, false)) and grids.has(key):
+				out[key] = grids[key]
 	return out
 
 
@@ -314,7 +371,7 @@ func push_undo() -> void:
 
 func paint(v: int) -> void:
 	push_undo()
-	hand[dir] = true
+	hand[_slot(dir, frame)] = true
 	Sprites.set_px(spr, cx, cy, v)
 	if mirror:
 		Sprites.set_px(spr, Sprites.W - 1 - cx, cy, v)
@@ -346,12 +403,12 @@ func up_editor(dt: float) -> void:
 		var y := PAL_Y + int(i / 8) * PAL_CELL
 		if hit(x, y, PAL_CELL, PAL_CELL) and _click():
 			colour = i
-	if hit(SIDE_X, 206, 120, 22) and _click():
+	if hit(PAL_X, 322, 130, 24) and _click():
 		finish_editor()
 
 
 func finish_editor() -> void:
-	grids[dir] = spr
+	grids[_slot(dir, frame)] = spr
 	var lit := 0
 	for i in PackedByteArray(grids.get("down", spr)):
 		if i != 0:
@@ -418,13 +475,14 @@ func do_finish() -> void:
 		Data.INSTRUMENTS[inst_idx].id,
 		front,
 		Data.ELEMENTS[elem_idx].id,
-		all_views())
+		all_views(),
+		all_frames())
 	finished.emit(p)
 
 
 ## The drawn sprite, or a preset if there is effectively nothing drawn.
 func _usable_sprite() -> PackedByteArray:
-	grids[dir] = spr
+	grids[_slot(dir, frame)] = spr
 	var front: PackedByteArray = grids.get("down", spr)
 	var filled := 0
 	for b in front:
@@ -570,22 +628,29 @@ func draw_editor() -> void:
 	# All four at once, with the one being drawn ringed. A facing that has not
 	# been touched shows the automatic version, so you can see what you are
 	# getting for free before deciding whether to draw it yourself.
-	UI.window(self, SIDE_X, 22, 120, 176, {"alpha": 0.8})
-	PixelFont.draw_centered(self, "press 1-4", SIDE_X + 60, 26, Color("#9890b8"))
-	PixelFont.draw(self, "drawing: " + dir, Vector2(196, 8), UI.COL_GOLD)
-	grids[dir] = spr
-	for i in DIRS.size():
-		var d: String = DIRS[i]
-		var g: PackedByteArray = grids[d] if (bool(hand.get(d, false)) and grids.has(d)) else _derive(d)
-		var gx := SIDE_X + 10 + (i % 2) * 54
-		var gy := 38 + int(i / 2) * 70
-		if d == dir:
+	UI.window(self, SIDE_X, 22, 120, 216, {"alpha": 0.8})
+	PixelFont.draw_centered(self, dir, SIDE_X + 60, 26, Color("#9890b8"))
+	PixelFont.draw(self, "drawing: %s %s" % [dir, FRAME_NAMES[frame]],
+		Vector2(180, 8), UI.COL_GOLD)
+	grids[_slot(dir, frame)] = spr
+	# the four steps of this facing's walk, with the one being drawn ringed
+	for f in FRAMES:
+		var g: PackedByteArray = _slot_grid(dir, f)
+		var gx := SIDE_X + 10 + (f % 2) * 54
+		var gy := 38 + int(f / 2) * 62
+		if f == frame:
 			UI.rect(self, gx - 3, gy - 3, Sprites.W + 6, Sprites.H + 6, Color("#5a4a98"))
 			UI.rect(self, gx - 2, gy - 2, Sprites.W + 4, Sprites.H + 4,
 				Color(0.09, 0.07, 0.16, 0.9))
 		draw_sprite_grid(g, gx, gy, 1, false)
-		PixelFont.draw_centered(self, d, gx + int(Sprites.W / 2), gy + Sprites.H + 2,
-			UI.COL_GOLD if d == dir else UI.COL_FAINT)
+		PixelFont.draw_centered(self, FRAME_NAMES[f], gx + int(Sprites.W / 2),
+			gy + Sprites.H + 2, UI.COL_GOLD if f == frame else UI.COL_FAINT)
+
+	# and the same four running at walking speed, which is the only way to tell
+	# whether what you have drawn actually walks
+	var beat := int(t * 7.0) % FRAMES
+	PixelFont.draw_centered(self, "walking", SIDE_X + 60, 166, Color("#9890b8"))
+	draw_sprite_grid(_slot_grid(dir, beat), SIDE_X + 44, 178, 1, false)
 
 	UI.window(self, PAL_X, 236, UI.SCREEN_W - PAL_X - 8, 78, {"alpha": 0.82})
 	PixelFont.draw(self, "move: arrows   paint: Z   erase: X", Vector2(PAL_X + 8, 244), Color("#c8c0dc"))
@@ -593,9 +658,10 @@ func draw_editor() -> void:
 	PixelFont.draw(self, "mirror: M  undo: U  clear: R", Vector2(PAL_X + 8, 272), Color("#c8c0dc"))
 	PixelFont.draw(self, "template: T", Vector2(PAL_X + 8, 286), Color("#c8c0dc"))
 	PixelFont.draw(self, "facing: 1 down  2 up  3 left  4 right", Vector2(PAL_X + 8, 300), UI.COL_GOLD)
-	var hot := hit(SIDE_X, 206, 120, 22)
-	UI.window(self, SIDE_X, 206, 120, 22, {"top": Color("#5a4a98")} if hot else {})
-	PixelFont.draw_centered(self, "ENTER  done", SIDE_X + 60, 213,
+	PixelFont.draw(self, "frame:  5 stand  6/7/8 walking", Vector2(PAL_X + 8, 314), UI.COL_GOLD)
+	var hot := hit(PAL_X, 322, 130, 24)
+	UI.window(self, PAL_X, 322, 130, 24, {"top": Color("#5a4a98")} if hot else {})
+	PixelFont.draw_centered(self, "ENTER  done", PAL_X + 65, 330,
 		Color("#fff4c0") if hot else UI.COL_GOLD)
 
 
