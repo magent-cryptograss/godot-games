@@ -322,6 +322,33 @@ func up_gallery(dt: float) -> void:
 const FRAME_NAMES := ["stand", "walk 1", "walk 2", "walk 3"]
 
 
+## Where the four preview cells are, and which canvas each one shows.
+##
+## Worked out once and used by both the drawing and the click handling: a click
+## target that has drifted away from the picture it is under is worse than not
+## being able to click at all.
+func _panel_cells() -> Array:
+	var slots := page_slots()
+	var here: int = slots.find(cur_key())
+	var start := 0
+	if page == "battle":
+		# a window that slides along, since eleven will not fit in four
+		start = clampi(here - 1, 0, maxi(0, slots.size() - 4))
+	else:
+		start = int(here / FRAMES) * FRAMES
+	var out: Array = []
+	for i in 4:
+		var idx := start + i
+		if idx >= slots.size():
+			break
+		out.append({
+			"key": str(slots[idx]),
+			"x": SIDE_X + 10.0 + (i % 2) * 54.0,
+			"y": 38.0 + int(i / 2) * 62.0,
+		})
+	return out
+
+
 ## The short form, for a cell that is 32 pixels wide.
 func _short_label(key: String) -> String:
 	if key == "battle":
@@ -527,6 +554,10 @@ func up_editor(dt: float) -> void:
 			paint(colour)
 		if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
 			paint(0)
+	for cell in _panel_cells():
+		if hit(cell.x - 3, cell.y - 3, Sprites.W + 6, Sprites.H + 6) and _click():
+			set_key(str(cell.key))
+			return
 	for i in Sprites.PALETTE.size():
 		var x := PAL_X + (i % 8) * PAL_CELL
 		var y := PAL_Y + int(i / 8) * PAL_CELL
@@ -775,20 +806,13 @@ func draw_editor() -> void:
 	# Four canvases at a time, with the one being drawn ringed. On the walking
 	# page that is the four steps of this facing; on the fighting page it is a
 	# window that slides along as you step, since eleven will not fit.
-	var slots := page_slots()
-	var here: int = slots.find(cur_key())
-	var start := 0
-	if page == "battle":
-		start = clampi(here - 1, 0, maxi(0, slots.size() - 4))
-	else:
-		start = int(here / FRAMES) * FRAMES
-	for i in 4:
-		var idx := start + i
-		if idx >= slots.size():
-			break
-		var key := str(slots[idx])
-		var gx := SIDE_X + 10 + (i % 2) * 54
-		var gy := 38 + int(i / 2) * 62
+	for cell in _panel_cells():
+		var key: String = cell.key
+		var gx: float = cell.x
+		var gy: float = cell.y
+		# the one under the pointer lifts, so it is clear it can be pressed
+		if hit(gx - 3, gy - 3, Sprites.W + 6, Sprites.H + 6) and key != cur_key():
+			UI.rect(self, gx - 3, gy - 3, Sprites.W + 6, Sprites.H + 6, Color("#3d3468"))
 		if key == cur_key():
 			UI.rect(self, gx - 3, gy - 3, Sprites.W + 6, Sprites.H + 6, Color("#5a4a98"))
 			UI.rect(self, gx - 2, gy - 2, Sprites.W + 4, Sprites.H + 4,

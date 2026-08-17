@@ -121,6 +121,60 @@ func _check_walk_frames() -> void:
 	c.queue_free()
 
 
+## The preview cells you can click.
+##
+## The drawing and the click handling read the same layout, so they cannot
+## disagree about where a cell is -- what is worth checking is that the cells
+## show what you are actually on, that the window follows you along the fighting
+## page, and that none of them is drawn outside the panel they live in.
+func _check_panel_cells() -> void:
+	var c := preload("res://scenes/Creation.tscn").instantiate()
+	add_child(c)
+	c.set_process(false)
+	c.reset()
+	c.spr = Sprites.build(Sprites.PRESETS[0].opts)
+	c._front_changed()
+
+	var cells: Array = c._panel_cells()
+	_expect(cells.size() == 4, "four cells on the walking page (%d)" % cells.size())
+	var keys: Array = []
+	for cell in cells:
+		keys.append(str(cell.key))
+	_expect(keys.has(c.cur_key()), "the canvas you are on is one of them (%s)" % str(keys))
+	_expect(keys == ["down", "down1", "down2", "down3"],
+		"they are the four steps of this facing (%s)" % str(keys))
+
+	# step to another facing and the cells follow
+	c.set_slot("left", 2)
+	keys.clear()
+	for cell in c._panel_cells():
+		keys.append(str(cell.key))
+	_expect(keys == ["left", "left1", "left2", "left3"],
+		"changing facing changes the cells (%s)" % str(keys))
+
+	# on the fighting page the window slides so the current one is always shown
+	var missing: Array = []
+	for slot in c.BATTLE_SLOTS:
+		c.set_key(str(slot))
+		var shown: Array = []
+		for cell in c._panel_cells():
+			shown.append(str(cell.key))
+		if not shown.has(str(slot)):
+			missing.append(str(slot))
+	_expect(missing.is_empty(),
+		"every fighting canvas is visible when you are on it (%s)" % str(missing))
+
+	# and nothing is drawn outside the panel it lives in
+	var outside: Array = []
+	for cell in c._panel_cells():
+		if cell.x < c.SIDE_X or cell.x + Sprites.W > c.SIDE_X + 120:
+			outside.append("%s x" % cell.key)
+		if cell.y < 22 or cell.y + Sprites.H > 22 + 216:
+			outside.append("%s y" % cell.key)
+	_expect(outside.is_empty(), "every cell sits inside the panel (%s)" % str(outside))
+	c.queue_free()
+
+
 ## The fighting page: a stance and up to ten attack frames, plus copy and paste.
 func _check_battle_frames() -> void:
 	var c := preload("res://scenes/Creation.tscn").instantiate()
@@ -344,6 +398,7 @@ func _process(_d: float) -> void:
 			_check_walk()
 			_check_walk_frames()
 			_check_battle_frames()
+			_check_panel_cells()
 		1: _shot("title")
 		2:
 			# make a character the way creation would, then walk into the world
