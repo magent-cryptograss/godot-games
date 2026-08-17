@@ -7,7 +7,7 @@ extends RefCounted
 ## coordinate hash so a field of grass is not visibly tiled), then whole maps are
 ## composed with blit_rect, which is far faster than per-pixel work in GDScript.
 
-const TS := 16
+const TS := 32
 
 const SOLID := {
 	"~": true, "T": true, "P": true, "^": true, "r": true, "%": true, "F": true,
@@ -64,402 +64,454 @@ static func _dith(img: Image, x: int, y: int, w: int, h: int, a: Color, b: Color
 
 ## Light comes from the top left in every tile, so surfaces read as solid
 ## rather than as coloured squares with noise on them.
+##
+## Tiles are 32x32. They were 16x16, which is not enough room for a surface to
+## have structure -- a wall could have a noise field on it but not courses of
+## stone, a floor could have stripes but not boards with ends and nails.
 static func _tile_image(ch: String, v: int) -> Image:
 	var img := Image.create(TS, TS, false, Image.FORMAT_RGBA8)
-	img.fill(Color("#3e7a42"))
+	img.fill(Color("#4a7a44"))
 	var r := func(i: int) -> float: return hash2(v * 31 + i, v * 17 + i * 7)
 	match ch:
 		".", "f":
-			# Three tones of grass with clumps standing on it, rather than one
-			# tone with noise sprinkled over it. Texture is scattered by hash and
+			# Grass in four tones: a body, broad soft patches drifting through
+			# it, and blades standing up with lit tips. Scattered by hash and
 			# never banded by row -- banding draws the tile grid across the map.
-			var base := Color("#4a7a44")
-			_fill(img, 0, 0, 16, 16, base)
-			for i in 5:                              # broad soft patches
-				var px2 := int(r.call(i) * 13)
-				var py2 := int(r.call(i + 9) * 13)
-				_fill(img, px2, py2, 4, 3, Color("#436e3e") if i % 2 == 0 else Color("#52804a"))
-			for i in 7:                              # blades, lit at the tip
-				var bx := 1 + int(r.call(i + 3) * 13)
-				var by := 2 + int(r.call(i + 17) * 11)
-				_fill(img, bx, by, 1, 3, Color("#3b6537"))
-				_fill(img, bx, by, 1, 1, Color("#66955b"))
-			if ch == "f":
-				var fc: Color = [Color("#e8d27a"), Color("#d9dbe8"), Color("#c98fb4"), Color("#e0a05c")][v % 4]
-				for pos in [Vector2i(4, 6), Vector2i(10, 9), Vector2i(7, 12)]:
-					_fill(img, pos.x, pos.y + 2, 1, 1, Color("#3b6537"))
-					_fill(img, pos.x, pos.y, 2, 2, fc.darkened(0.35))
-					_fill(img, pos.x, pos.y, 1, 1, fc.lightened(0.25))
-		"\"":
-			# dry grass: the same grass with the green gone out of it, and enough
-			# bare earth showing through to read as a different country
-			var dbase := Color("#7f8a4e")
-			_fill(img, 0, 0, 16, 16, dbase)
-			for i in 12:
-				var dx7 := int(r.call(i) * 15)
-				var dy7 := int(r.call(i + 5) * 15)
-				_fill(img, dx7, dy7, 2, 1, Color("#6d7742"))
-				if i % 3 == 0:
-					_fill(img, dx7, dy7 - 1, 1, 2, Color("#98a05e"))
-				if i % 4 == 0:
-					_fill(img, dx7, dy7, 2, 2, Color("#8a7a52"))
-		",":
-			var gbase := Color("#3a6339")
-			_fill(img, 0, 0, 16, 16, gbase)
+			_fill(img, 0, 0, 32, 32, Color("#4a7a44"))
+			for i in 9:
+				var px := int(r.call(i) * 27)
+				var py := int(r.call(i + 9) * 27)
+				_fill(img, px, py, 6, 4, Color("#436e3e") if i % 2 == 0 else Color("#537f4a"))
 			for i in 5:
-				var sx2 := int(r.call(i + 30) * 13)
-				var sy2 := int(r.call(i + 37) * 13)
-				_fill(img, sx2, sy2, 4, 3, Color("#345a34"))
-			for i in 12:
-				var bx2 := int(r.call(i) * 15)
-				var by2 := 1 + int(r.call(i + 5) * 10)
-				var hgt := 4 + int(r.call(i + 21) * 2)
-				_fill(img, bx2, by2, 1, hgt, Color("#2a4f2e"))
-				_fill(img, bx2, by2, 1, 2, Color("#46764a"))
-				_fill(img, bx2, by2, 1, 1, Color("#5c9260"))
-		'"':
-			_fill(img, 0, 0, 16, 16, Color("#4a7a44"))
-			for i in 8:
-				var bx3 := int(r.call(i) * 14)
-				var by3 := int(r.call(i + 4) * 13)
-				_fill(img, bx3, by3, 2, 2, Color("#3a6636"))
-				_fill(img, bx3, by3, 1, 1, Color("#5f9257"))
-		"=", "q":
-			# Packed earth: a lit body, a rut worn down the middle where the feet
-			# go, and stones pressed into it. Every stone gets a lit top and a
-			# dark underside, which is the whole trick for making a flat tile
-			# look like it has things sitting on it.
-			var road := Color("#9c8258") if ch == "=" else Color("#8a7048")
-			_fill(img, 0, 0, 16, 16, road)
-			_fill(img, 0, 6, 16, 5, road.darkened(0.10))
-			_dith(img, 0, 4, 16, 2, road.darkened(0.10), road)
-			_dith(img, 0, 11, 16, 2, road.darkened(0.10), road)
+				_dith(img, int(r.call(i + 20) * 24), int(r.call(i + 26) * 26), 8, 4,
+					Color("#537f4a"), Color("#4a7a44"))
+			for i in 16:
+				var bx := 1 + int(r.call(i + 3) * 29)
+				var by := 2 + int(r.call(i + 17) * 26)
+				_fill(img, bx, by, 1, 4, Color("#3b6537"))
+				_fill(img, bx, by, 1, 2, Color("#5b8a52"))
+				_fill(img, bx, by, 1, 1, Color("#6d9b60"))
+			if ch == "f":
+				var fc: Color = [Color("#e8d27a"), Color("#d9dbe8"), Color("#c98fb4"),
+					Color("#e0a05c")][v % 4]
+				for pos in [Vector2i(8, 11), Vector2i(21, 18), Vector2i(14, 24), Vector2i(25, 7)]:
+					_fill(img, pos.x, pos.y + 3, 1, 3, Color("#3b6537"))
+					_fill(img, pos.x - 1, pos.y, 3, 3, fc.darkened(0.4))
+					_fill(img, pos.x, pos.y, 2, 2, fc)
+					_fill(img, pos.x, pos.y, 1, 1, fc.lightened(0.3))
+		"\"":
+			# dry grass: the same ground with the green gone out of it and bare
+			# earth showing through
+			_fill(img, 0, 0, 32, 32, Color("#7f8a4e"))
+			for i in 10:
+				var dx := int(r.call(i) * 27)
+				var dy := int(r.call(i + 5) * 27)
+				_fill(img, dx, dy, 5, 3, Color("#74804a"))
 			for i in 6:
-				var bx4 := 1 + int(r.call(i) * 13)
-				var by4 := 2 + int(r.call(i + 6) * 11)
-				var sw := 2 if i % 2 == 0 else 1
-				_fill(img, bx4, by4, sw, 2, road.darkened(0.30))
-				_fill(img, bx4, by4, sw, 1, road.lightened(0.22))
-			for i in 3:
-				_fill(img, int(r.call(i + 21) * 15), int(r.call(i + 27) * 15), 1, 1,
+				_dith(img, int(r.call(i + 14) * 24), int(r.call(i + 19) * 26), 8, 4,
+					Color("#8a7a52"), Color("#7f8a4e"))
+			for i in 14:
+				var bx2 := int(r.call(i + 30) * 30)
+				var by2 := int(r.call(i + 40) * 28)
+				_fill(img, bx2, by2, 1, 3, Color("#6d7742"))
+				_fill(img, bx2, by2, 1, 1, Color("#9aa463"))
+		",":
+			# deep grass, tall enough to hide things in
+			_fill(img, 0, 0, 32, 32, Color("#3a6339"))
+			for i in 8:
+				_fill(img, int(r.call(i + 30) * 27), int(r.call(i + 37) * 27), 6, 4,
+					Color("#345a34"))
+			for i in 26:
+				var bx3 := int(r.call(i) * 31)
+				var by3 := int(r.call(i + 5) * 22)
+				var hgt := 7 + int(r.call(i + 21) * 4)
+				_fill(img, bx3, by3, 1, hgt, Color("#2a4f2e"))
+				_fill(img, bx3, by3, 1, 3, Color("#46764a"))
+				_fill(img, bx3, by3, 1, 1, Color("#5f9663"))
+		"=", "q":
+			# Packed earth: a body, a rut worn down the middle where the feet go,
+			# and stones pressed into it. Every stone gets a lit top and a dark
+			# underside, which is what makes a flat tile look like it has things
+			# sitting on it.
+			var road := Color("#9c8258") if ch == "=" else Color("#8a7048")
+			_fill(img, 0, 0, 32, 32, road)
+			_fill(img, 0, 11, 32, 11, road.darkened(0.10))
+			_dith(img, 0, 8, 32, 4, road.darkened(0.10), road)
+			_dith(img, 0, 21, 32, 4, road.darkened(0.10), road)
+			for i in 14:
+				var bx4 := 1 + int(r.call(i) * 28)
+				var by4 := 2 + int(r.call(i + 6) * 26)
+				var sw := 2 + int(r.call(i + 18) * 3)
+				_fill(img, bx4, by4, sw, 3, road.darkened(0.30))
+				_fill(img, bx4, by4, sw, 1, road.lightened(0.24))
+				_fill(img, bx4, by4 + 2, sw, 1, road.darkened(0.42))
+			for i in 6:
+				_fill(img, int(r.call(i + 41) * 31), int(r.call(i + 47) * 31), 2, 1,
 					Color("#5d7a49"))
 		"o":
-			_fill(img, 0, 0, 16, 16, Color("#6e6e6a"))
-			for a in 2:
-				for b in 2:
-					var sx := b * 8
-					var sy := a * 8
-					var tone := Color("#9a9a94") if hash2(v * 4 + b, a) > 0.5 else Color("#8a8a86")
-					_fill(img, sx, sy, 7, 7, tone)
-					_fill(img, sx, sy, 7, 1, tone.lightened(0.22))
-					_fill(img, sx, sy, 1, 7, tone.lightened(0.12))
-					_fill(img, sx, sy + 6, 7, 1, tone.darkened(0.25))
-					_fill(img, sx + 6, sy, 1, 7, tone.darkened(0.15))
+			# Laid stone, offset course to course, each slab with a lit top edge,
+			# a shaded bottom and grout between.
+			_fill(img, 0, 0, 32, 32, Color("#4f4d4b"))
+			for row in 4:
+				var off := 0 if row % 2 == 0 else 8
+				for col in 3:
+					var sx := -off + col * 16
+					var st := Color("#7d7b76") if (row + col) % 2 == 0 else Color("#74726d")
+					if hash2(v * 13 + row, col) > 0.78:
+						st = Color("#867f77")
+					_fill(img, sx, row * 8, 15, 7, st)
+					_fill(img, sx, row * 8, 15, 1, st.lightened(0.18))
+					_fill(img, sx, row * 8 + 6, 15, 1, st.darkened(0.26))
+					_fill(img, sx, row * 8, 1, 7, st.lightened(0.08))
+					if hash2(v * 5 + row, col * 3) > 0.6:
+						_fill(img, sx + 3, row * 8 + 3, 2, 1, st.darkened(0.16))
 		"B":
-			_fill(img, 0, 0, 16, 16, Color("#22528a"))
-			_fill(img, 0, 1, 16, 14, Color("#a07840"))
+			# a plank bridge, over water
+			_fill(img, 0, 0, 32, 32, Color("#22528a"))
+			_fill(img, 0, 2, 32, 28, Color("#a07840"))
 			for i in 5:
-				_fill(img, 0, 1 + i * 3, 16, 1, Color("#7a5628"))
-				_fill(img, 0, 2 + i * 3, 16, 1, Color("#b78a4c"))
-			_fill(img, 0, 0, 16, 1, Color("#c9a05e"))
-			_fill(img, 0, 15, 16, 1, Color("#5e3f1c"))
+				var py2 := 2 + i * 6
+				_fill(img, 0, py2, 32, 5, Color("#a07840"))
+				_fill(img, 0, py2, 32, 1, Color("#c09a5e"))
+				_fill(img, 0, py2 + 4, 32, 1, Color("#6b4a24"))
+				_fill(img, 4, py2 + 2, 1, 1, Color("#5e3f1c"))
+				_fill(img, 27, py2 + 2, 1, 1, Color("#5e3f1c"))
+			_fill(img, 0, 0, 32, 2, Color("#c9a05e"))
+			_fill(img, 0, 30, 32, 2, Color("#5e3f1c"))
 		"~":
+			# three depths, with the light catching along the crests
 			var deep := Color("#1d4a80")
 			var mid := Color("#22528a")
 			var topw := Color("#2f6099")
-			_fill(img, 0, 0, 16, 16, mid)
-			_dith(img, 0, 0, 16, 5, topw, mid)
-			_dith(img, 0, 10, 16, 6, mid, deep)
-			for i in 3:
-				var bx5 := int(r.call(i) * 11)
-				var by5 := 2 + int(r.call(i + 7) * 11)
-				_fill(img, bx5, by5, 4, 1, Color("#4f8fc4"))
-				_fill(img, bx5 + 1, by5 - 1, 2, 1, Color("#79b4dd"))
+			_fill(img, 0, 0, 32, 32, mid)
+			_dith(img, 0, 0, 32, 10, topw, mid)
+			_dith(img, 0, 20, 32, 12, mid, deep)
+			for i in 6:
+				var bx5 := int(r.call(i) * 24)
+				var by5 := 3 + int(r.call(i + 7) * 24)
+				_fill(img, bx5, by5, 8, 1, Color("#4f8fc4"))
+				_fill(img, bx5 + 2, by5 - 1, 4, 1, Color("#79b4dd"))
+				_fill(img, bx5 + 3, by5 - 2, 2, 1, Color("#a5d2ee"))
 		"T":
 			# A canopy of overlapping lobes rather than one disc, lit from the top
-			# left, with a cast shadow on the ground to sit it down. A single flat
-			# circle reads as a bush.
-			_fill(img, 0, 0, 16, 16, Color("#4a7a44"))
-			_ellipse(img, 9, 14, 6, 2, Color("#3c6438"))
-			_fill(img, 7, 10, 3, 5, Color("#4a3018"))
-			_fill(img, 7, 10, 1, 5, Color("#6b4823"))
-			_fill(img, 9, 10, 1, 5, Color("#33200f"))
-			_disc(img, 8, 7, 6, Color("#1d4423"))
-			for lobe in [[6, 5, 4], [11, 6, 4], [8, 9, 4], [9, 4, 3]]:
+			# left, with a cast shadow to sit it on the ground. One flat circle
+			# reads as a bush.
+			_fill(img, 0, 0, 32, 32, Color("#4a7a44"))
+			_ellipse(img, 18, 28, 12, 4, Color("#3c6438"))
+			_fill(img, 14, 20, 5, 10, Color("#4a3018"))
+			_fill(img, 14, 20, 2, 10, Color("#6b4823"))
+			_fill(img, 18, 20, 1, 10, Color("#33200f"))
+			_disc(img, 16, 14, 12, Color("#1d4423"))
+			for lobe in [[11, 10, 8], [22, 12, 7], [16, 18, 8], [18, 8, 6]]:
 				_disc(img, int(lobe[0]), int(lobe[1]), int(lobe[2]), Color("#2b6231"))
-			for lobe in [[6, 5, 3], [10, 5, 2], [7, 8, 2]]:
+			for lobe in [[12, 10, 6], [20, 10, 4], [14, 16, 4], [23, 15, 3]]:
 				_disc(img, int(lobe[0]), int(lobe[1]), int(lobe[2]), Color("#3a7a3e"))
-			_disc(img, 5, 4, 2, Color("#4d9350"))
-			_fill(img, 4, 3, 2, 1, Color("#63a862"))
-			_dith(img, 3, 9, 10, 3, Color("#1d4423"), Color("#2b6231"))
+			_disc(img, 10, 8, 4, Color("#4d9350"))
+			_fill(img, 8, 6, 4, 2, Color("#63a862"))
+			_dith(img, 6, 18, 20, 6, Color("#1d4423"), Color("#2b6231"))
+			for i in 10:
+				_fill(img, 4 + int(r.call(i) * 24), 4 + int(r.call(i + 9) * 20), 1, 1,
+					Color("#4d9350"))
 		"P":
-			_fill(img, 0, 0, 16, 16, Color("#4a7a44"))
-			_ellipse(img, 9, 15, 5, 1, Color("#3c6438"))
-			_fill(img, 7, 12, 3, 4, Color("#42301a"))
-			_fill(img, 7, 12, 1, 4, Color("#63421f"))
-			# skirts of needles, each lit along the top and dark underneath so
-			# the tiers read as tiers rather than as stripes
-			for i in 4:
-				var wd := 3 + i * 3
-				var yy2 := 2 + i * 3
-				var xx2 := 8 - (wd >> 1)
-				_fill(img, xx2, yy2, wd, 3, Color("#1b4522"))
-				_fill(img, xx2, yy2, wd, 1, Color("#2e6a33"))
-				_fill(img, xx2, yy2, maxi(1, int(wd / 2)), 1, Color("#41894a"))
-				_fill(img, xx2, yy2 + 2, wd, 1, Color("#14351a"))
-			_fill(img, 7, 0, 2, 3, Color("#2e6a33"))
-			_fill(img, 7, 0, 1, 2, Color("#41894a"))
+			_fill(img, 0, 0, 32, 32, Color("#4a7a44"))
+			_ellipse(img, 18, 30, 10, 3, Color("#3c6438"))
+			_fill(img, 14, 24, 5, 8, Color("#42301a"))
+			_fill(img, 14, 24, 2, 8, Color("#63421f"))
+			# skirts of needles, lit along the top and dark underneath so the
+			# tiers read as tiers rather than as stripes
+			for i in 5:
+				var wd := 6 + i * 5
+				var yy := 3 + i * 5
+				var xx := 16 - (wd >> 1)
+				_fill(img, xx, yy, wd, 6, Color("#1b4522"))
+				_fill(img, xx, yy, wd, 2, Color("#2e6a33"))
+				_fill(img, xx, yy, maxi(1, int(wd / 2)), 1, Color("#41894a"))
+				_fill(img, xx, yy + 5, wd, 1, Color("#12301a"))
+			_fill(img, 14, 0, 4, 5, Color("#2e6a33"))
+			_fill(img, 14, 0, 2, 3, Color("#41894a"))
 		"^":
-			_fill(img, 0, 0, 16, 16, Color("#5c554c"))
-			# two faces: lit to the left of the ridge, shadowed to the right
-			for yy3 in 16:
-				var half := int((yy3 + 1) / 2) + 1
-				_fill(img, maxi(0, 8 - half), yy3, half, 1, Color("#7d766a"))
-				_fill(img, 8, yy3, half, 1, Color("#4e483f"))
-			for yy4 in range(1, 6):
-				_fill(img, 8 - yy4, yy4, yy4 * 2, 1, Color("#e4e6ee") if yy4 < 4 else Color("#b9bcc6"))
-			_dith(img, 0, 14, 16, 2, Color("#4e483f"), Color("#3b362f"))
+			# a peak with a lit face, a shaded face and snow on top
+			_fill(img, 0, 0, 32, 32, Color("#6b645a"))
+			for i in 32:
+				var half := int((i + 1) / 2) + 2
+				_fill(img, maxi(0, 16 - half), i, half, 1, Color("#8d8578"))
+				_fill(img, 16, i, half, 1, Color("#4e483f"))
+			_fill(img, 12, 2, 8, 5, Color("#d8d4cc"))
+			_fill(img, 14, 1, 5, 3, Color("#f0ece4"))
+			_fill(img, 16, 4, 4, 4, Color("#b4aea4"))
+			for i in 5:
+				var cy := 8 + int(r.call(i) * 20)
+				_fill(img, 16 - int(r.call(i + 8) * 6), cy, 3, 1, Color("#5d564d"))
 		"r":
-			# each variant is a different boulder, or a field of them turns into
-			# wallpaper -- four identical rocks in a row is worse than none
-			_fill(img, 0, 0, 16, 16, Color("#3e7a42"))
-			var rx := 6 + int(r.call(1) * 4)
-			var ry := 8 + int(r.call(2) * 3)
-			var rw := 4 + int(r.call(3) * 3)
-			_ellipse(img, rx, ry + 4, rw, 2, Color("#2f6135"))
-			_ellipse(img, rx, ry, rw, rw - 1, Color("#6b645a"))
-			_ellipse(img, rx - 1, ry - 1, maxi(2, rw - 2), maxi(2, rw - 3), Color("#8d8578"))
-			_fill(img, rx - 2, ry - 3, 2, 1, Color("#a8a094"))
-			_ellipse(img, rx + 2, ry + 2, maxi(2, rw - 3), 2, Color("#544e46"))
-			if v % 2 == 0:
-				# a smaller companion stone
-				var sx2 := 2 + int(r.call(4) * 3)
-				var sy2 := 10 + int(r.call(5) * 3)
-				_ellipse(img, sx2, sy2, 2, 2, Color("#615a52"))
-				_fill(img, sx2 - 1, sy2 - 1, 1, 1, Color("#8d8578"))
+			# a boulder sitting on the ground rather than a grey square
+			_fill(img, 0, 0, 32, 32, Color("#4a7a44"))
+			_ellipse(img, 17, 27, 13, 4, Color("#3c6438"))
+			_ellipse(img, 16, 18, 13, 11, Color("#4f4941"))
+			_ellipse(img, 15, 16, 11, 9, Color("#6b645a"))
+			_ellipse(img, 13, 13, 8, 6, Color("#847c70"))
+			_ellipse(img, 12, 11, 5, 3, Color("#9a9186"))
+			_dith(img, 6, 20, 20, 6, Color("#4f4941"), Color("#6b645a"))
+			_fill(img, 20, 14, 4, 1, Color("#3f3a34"))
+			_fill(img, 9, 20, 5, 1, Color("#3f3a34"))
 		"%":
-			_fill(img, 0, 0, 16, 16, Color("#3e7a42"))
-			_ellipse(img, 8, 14, 5, 2, Color("#2f6135"))
-			_disc(img, 8, 9, 6, Color("#1f4a24"))
-			_disc(img, 7, 8, 4, Color("#2f6c34"))
-			_disc(img, 6, 6, 2, Color("#43884a"))
-			if v % 2 == 0:
-				for pos2 in [Vector2i(10, 10), Vector2i(5, 12)]:
-					_fill(img, pos2.x, pos2.y, 2, 2, Color("#8f2420"))
-					_fill(img, pos2.x, pos2.y, 1, 1, Color("#d84b3c"))
+			_fill(img, 0, 0, 32, 32, Color("#4a7a44"))
+			_ellipse(img, 17, 27, 12, 3, Color("#3c6438"))
+			for lobe in [[10, 20, 8], [22, 20, 8], [16, 15, 9]]:
+				_disc(img, int(lobe[0]), int(lobe[1]), int(lobe[2]), Color("#22522a"))
+			for lobe in [[10, 18, 6], [21, 18, 5], [15, 13, 6]]:
+				_disc(img, int(lobe[0]), int(lobe[1]), int(lobe[2]), Color("#2f6c34"))
+			_disc(img, 12, 12, 4, Color("#43884a"))
+			for i in 8:
+				_fill(img, 5 + int(r.call(i) * 22), 8 + int(r.call(i + 7) * 16), 1, 1,
+					Color("#57a45c"))
 		"F":
-			_fill(img, 0, 0, 16, 16, Color("#3e7a42"))
-			for px in [2, 11]:
-				_fill(img, px, 4, 2, 11, Color("#5f4526"))
-				_fill(img, px, 4, 1, 11, Color("#8a6a40"))
-			for yy5 in [6, 11]:
-				_fill(img, 0, yy5, 16, 2, Color("#6b4e2b"))
-				_fill(img, 0, yy5, 16, 1, Color("#9a7647"))
+			# a rail fence, posts and two rails
+			_fill(img, 0, 0, 32, 32, Color("#4a7a44"))
+			for px2 in [4, 22]:
+				_fill(img, px2, 8, 5, 22, Color("#5f4526"))
+				_fill(img, px2, 8, 2, 22, Color("#8a6a40"))
+				_fill(img, px2, 8, 5, 1, Color("#a3814f"))
+			for yy2 in [12, 22]:
+				_fill(img, 0, yy2, 32, 4, Color("#6b4e2b"))
+				_fill(img, 0, yy2, 32, 1, Color("#9a7647"))
+				_fill(img, 0, yy2 + 3, 32, 1, Color("#4a3419"))
 		"#":
-			_fill(img, 0, 0, 16, 16, Color("#5f5852"))
-			for a2 in 4:
-				var off := (a2 % 2) * 4
-				for b2 in range(-1, 3):
-					var bx6 := b2 * 8 + off
-					var tone2 := Color("#8b837c") if hash2(v * 9 + b2, a2) > 0.5 else Color("#7b736c")
-					_fill(img, bx6 + 1, a2 * 4 + 1, 6, 2, tone2)
-					_fill(img, bx6 + 1, a2 * 4 + 1, 6, 1, tone2.lightened(0.18))
+			# courses of stone, offset row to row
+			_fill(img, 0, 0, 32, 32, Color("#463f3a"))
+			for row2 in 4:
+				var off2 := 0 if row2 % 2 == 0 else 6
+				for col2 in 4:
+					var sx2 := -off2 + col2 * 12
+					var tone := Color("#8b837c") if hash2(v * 9 + row2, col2) > 0.5 else Color("#7b736c")
+					_fill(img, sx2, row2 * 8, 11, 7, tone)
+					_fill(img, sx2, row2 * 8, 11, 1, tone.lightened(0.18))
+					_fill(img, sx2, row2 * 8 + 6, 11, 1, tone.darkened(0.3))
+					_fill(img, sx2, row2 * 8, 1, 7, tone.lightened(0.08))
 		"W":
-			# The front of the building. The dark band across the top is the
-			# shadow the overhanging roof casts on it, and it is the reason the
-			# roof reads as being in front of the wall rather than beside it.
+			# The front of a building. The dark band across the top is the shadow
+			# the overhanging roof throws on it, and it is the reason the roof
+			# reads as being in front of the wall rather than beside it.
 			var plaster := Color("#c9b189")
-			_fill(img, 0, 0, 16, 16, plaster)
-			_fill(img, 0, 12, 16, 4, Color("#a08a66"))        # ground shading
-			_dith(img, 0, 10, 16, 2, Color("#a08a66"), plaster)
-			_fill(img, 0, 0, 16, 3, Color("#6d5a41"))         # eave shadow
-			_fill(img, 0, 3, 16, 1, Color("#8f7859"))
-			# timber framing
-			_fill(img, 0, 4, 1, 12, Color("#6b4c2e"))
-			_fill(img, 15, 4, 1, 12, Color("#6b4c2e"))
-			_fill(img, 0, 15, 16, 1, Color("#5a4527"))
+			_fill(img, 0, 0, 32, 32, plaster)
+			_fill(img, 0, 24, 32, 8, Color("#a08a66"))
+			_dith(img, 0, 20, 32, 4, Color("#a08a66"), plaster)
+			_fill(img, 0, 0, 32, 6, Color("#6d5a41"))
+			_fill(img, 0, 6, 32, 2, Color("#8f7859"))
+			_fill(img, 0, 8, 2, 24, Color("#6b4c2e"))
+			_fill(img, 30, 8, 2, 24, Color("#6b4c2e"))
 			if v % 2 == 0:
-				# a window: frame, dark glass, and a bright corner where the sky
-				# catches it
-				_fill(img, 4, 6, 8, 7, Color("#5a3f22"))
-				_fill(img, 5, 7, 6, 5, Color("#3c4a63"))
-				_fill(img, 5, 7, 3, 3, Color("#5d7194"))
-				_fill(img, 5, 7, 2, 1, Color("#8fa4c4"))
-				_fill(img, 8, 7, 1, 5, Color("#5a3f22"))
-				_fill(img, 5, 9, 6, 1, Color("#5a3f22"))
-				_fill(img, 4, 12, 8, 1, Color("#8a6c47"))     # sill
+				_fill(img, 8, 12, 16, 14, Color("#5a3f22"))
+				_fill(img, 10, 14, 12, 10, Color("#3c4a63"))
+				_fill(img, 10, 14, 6, 5, Color("#5d7194"))
+				_fill(img, 10, 14, 4, 2, Color("#8fa4c4"))
+				_fill(img, 15, 14, 2, 10, Color("#5a3f22"))
+				_fill(img, 10, 18, 12, 2, Color("#5a3f22"))
+				_fill(img, 7, 25, 18, 2, Color("#8a6c47"))
 			else:
-				_fill(img, 3, 7, 1, 8, Color("#a58f6b"))      # a beam
-				_fill(img, 12, 9, 1, 6, Color("#a58f6b"))
+				_fill(img, 6, 14, 2, 16, Color("#a58f6b"))
+				_fill(img, 24, 18, 2, 12, Color("#a58f6b"))
 		"n":
-			# The lower course of the front wall. No eave shadow -- that belongs
-			# only on the row the roof actually overhangs.
+			# the lower course of the wall: no eave shadow, that belongs only on
+			# the row the roof actually overhangs
 			var plaster2 := Color("#c9b189")
-			_fill(img, 0, 0, 16, 16, plaster2)
-			_fill(img, 0, 11, 16, 5, Color("#a08a66"))
-			_dith(img, 0, 9, 16, 2, Color("#a08a66"), plaster2)
-			_fill(img, 0, 0, 1, 16, Color("#6b4c2e"))
-			_fill(img, 15, 0, 1, 16, Color("#6b4c2e"))
-			_fill(img, 0, 15, 16, 1, Color("#5a4527"))
-			_fill(img, 0, 14, 16, 1, Color("#8a7a5c"))
+			_fill(img, 0, 0, 32, 32, plaster2)
+			_fill(img, 0, 22, 32, 10, Color("#a08a66"))
+			_dith(img, 0, 18, 32, 4, Color("#a08a66"), plaster2)
+			_fill(img, 0, 0, 2, 32, Color("#6b4c2e"))
+			_fill(img, 30, 0, 2, 32, Color("#6b4c2e"))
+			_fill(img, 0, 29, 32, 3, Color("#5a4527"))
+			_fill(img, 0, 28, 32, 1, Color("#8a7a5c"))
 			if v % 3 == 0:
-				_fill(img, 5, 3, 6, 6, Color("#5a3f22"))      # a small window
-				_fill(img, 6, 4, 4, 4, Color("#3c4a63"))
-				_fill(img, 6, 4, 2, 2, Color("#5d7194"))
-				_fill(img, 5, 9, 6, 1, Color("#8a6c47"))
+				_fill(img, 10, 6, 12, 12, Color("#5a3f22"))
+				_fill(img, 12, 8, 8, 8, Color("#3c4a63"))
+				_fill(img, 12, 8, 4, 4, Color("#5d7194"))
+				_fill(img, 9, 18, 14, 2, Color("#8a6c47"))
 			else:
-				_fill(img, 4, 2, 1, 11, Color("#a58f6b"))
-				_fill(img, 11, 5, 1, 8, Color("#a58f6b"))
+				_fill(img, 8, 4, 2, 22, Color("#a58f6b"))
+				_fill(img, 22, 10, 2, 16, Color("#a58f6b"))
 		"R":
-			# Courses of shingles running across the slope, each lit along its
-			# upper edge with a dark seam beneath, and offset course to course so
-			# the joins do not line up into a grid.
-			_fill(img, 0, 0, 16, 16, Color("#9c4034"))
+			# Courses of shingles across the slope, each lit along its upper edge
+			# with a dark seam beneath, offset course to course so the joins do
+			# not line up into a grid.
+			_fill(img, 0, 0, 32, 32, Color("#9c4034"))
 			for course in 4:
-				var cy2 := course * 4
-				var off3 := 0 if course % 2 == 0 else 2
-				_fill(img, 0, cy2, 16, 4, Color("#9c4034"))
-				_fill(img, 0, cy2, 16, 1, Color("#c2604c"))       # lit edge
-				_fill(img, 0, cy2 + 3, 16, 1, Color("#5f231d"))   # seam under
+				var cy2 := course * 8
+				var off3 := 0 if course % 2 == 0 else 4
+				_fill(img, 0, cy2, 32, 8, Color("#9c4034"))
+				_fill(img, 0, cy2, 32, 2, Color("#c2604c"))
+				_fill(img, 0, cy2, 32, 1, Color("#d68a72"))
+				_fill(img, 0, cy2 + 6, 32, 2, Color("#5f231d"))
 				for tile3 in 5:
-					var tx3 := -off3 + tile3 * 4
-					_fill(img, tx3, cy2 + 1, 1, 2, Color("#7d3129"))
-					if hash2(v * 7 + course, tile3) > 0.7:
-						_fill(img, tx3 + 1, cy2 + 1, 2, 1, Color("#b1523f"))
+					var tx3 := -off3 + tile3 * 8
+					_fill(img, tx3, cy2 + 2, 1, 4, Color("#7d3129"))
+					if hash2(v * 7 + course, tile3) > 0.62:
+						_fill(img, tx3 + 2, cy2 + 2, 4, 2, Color("#b1523f"))
 		"V":
-			# The ridge along the top of the roof: a capping course sitting proud
-			# of the slope, bright where it faces the sky.
-			_fill(img, 0, 0, 16, 16, Color("#9c4034"))
-			_fill(img, 0, 0, 16, 2, Color("#4a1e18"))         # sky side of the cap
-			_fill(img, 0, 2, 16, 3, Color("#d2735c"))         # lit cap
-			_fill(img, 0, 5, 16, 1, Color("#6a2a24"))         # shadow under it
+			# the ridge along the top: a capping course standing proud of the
+			# slope, bright where it faces the sky
+			_fill(img, 0, 0, 32, 32, Color("#9c4034"))
+			_fill(img, 0, 0, 32, 3, Color("#4a1e18"))
+			_fill(img, 0, 3, 32, 6, Color("#d2735c"))
+			_fill(img, 0, 3, 32, 2, Color("#e89178"))
+			_fill(img, 0, 9, 32, 2, Color("#6a2a24"))
 			for course in 3:
-				var cy3 := 6 + course * 4
-				_fill(img, 0, cy3, 16, 1, Color("#c2604c"))
-				_fill(img, 0, cy3 + 3, 16, 1, Color("#5f231d"))
+				var cy3 := 11 + course * 7
+				_fill(img, 0, cy3, 32, 2, Color("#c2604c"))
+				_fill(img, 0, cy3 + 5, 32, 2, Color("#5f231d"))
 				for tile4 in 4:
-					_fill(img, tile4 * 4 + (course % 2) * 2, cy3 + 1, 1, 2, Color("#7d3129"))
+					_fill(img, tile4 * 8 + (course % 2) * 4, cy3 + 2, 1, 3, Color("#7d3129"))
 		"d":
-			# Set into the same wall, so the eave shadow across the top has to
-			# line up with the tiles either side or the front of the house
-			# breaks in half.
-			_fill(img, 0, 0, 16, 16, Color("#c9b189"))
-			_fill(img, 0, 0, 16, 3, Color("#6d5a41"))
-			_fill(img, 0, 3, 16, 1, Color("#8f7859"))
-			_fill(img, 2, 4, 12, 12, Color("#5a3f22"))        # frame
-			_fill(img, 3, 5, 10, 11, Color("#7b5230"))        # door
-			_fill(img, 3, 5, 10, 1, Color("#96663d"))         # lit top edge
-			_fill(img, 3, 5, 1, 11, Color("#8d5f39"))
-			_fill(img, 12, 5, 1, 11, Color("#5f4023"))
-			for panel in 2:                                   # two panels
-				var py3 := 6 + panel * 5
-				_fill(img, 5, py3, 6, 4, Color("#6b4629"))
-				_fill(img, 5, py3, 6, 1, Color("#8a5c35"))
-				_fill(img, 5, py3 + 3, 6, 1, Color("#4d3319"))
-			_fill(img, 10, 10, 2, 2, Color("#e8c25c"))        # handle
-			_fill(img, 10, 10, 1, 1, Color("#fff0a8"))
-			_fill(img, 1, 15, 14, 1, Color("#9a9086"))        # stone step
+			# set into the same wall, so the eave shadow across the top must line
+			# up with the tiles either side or the front of the house breaks
+			_fill(img, 0, 0, 32, 32, Color("#c9b189"))
+			_fill(img, 0, 0, 32, 6, Color("#6d5a41"))
+			_fill(img, 0, 6, 32, 2, Color("#8f7859"))
+			_fill(img, 4, 8, 24, 24, Color("#5a3f22"))
+			_fill(img, 6, 10, 20, 22, Color("#7b5230"))
+			_fill(img, 6, 10, 20, 2, Color("#96663d"))
+			_fill(img, 6, 10, 2, 22, Color("#8d5f39"))
+			_fill(img, 24, 10, 2, 22, Color("#5f4023"))
+			for panel in 2:
+				var py3 := 13 + panel * 9
+				_fill(img, 10, py3, 12, 7, Color("#6b4629"))
+				_fill(img, 10, py3, 12, 1, Color("#8a5c35"))
+				_fill(img, 10, py3 + 6, 12, 1, Color("#4d3319"))
+			_fill(img, 20, 20, 3, 3, Color("#e8c25c"))
+			_fill(img, 20, 20, 2, 2, Color("#fff0a8"))
+			_fill(img, 2, 30, 28, 2, Color("#9a9086"))
 		"_":
-			_fill(img, 0, 0, 16, 16, Color("#9a7448"))
+			# floorboards, with ends and nail heads
+			_fill(img, 0, 0, 32, 32, Color("#9a7448"))
 			for i in 4:
-				_fill(img, 0, i * 4 + 3, 16, 1, Color("#6f4e2b"))
-				_fill(img, 0, i * 4, 16, 1, Color("#a98255"))
-			if v % 2 == 0:
-				_fill(img, 4, 1, 1, 2, Color("#7a5630"))
+				var by6 := i * 8
+				_fill(img, 0, by6, 32, 8, Color("#9a7448") if i % 2 == 0 else Color("#946f44"))
+				_fill(img, 0, by6, 32, 1, Color("#b08a5c"))
+				_fill(img, 0, by6 + 7, 32, 1, Color("#6f4e2b"))
+				var seam := (i * 13 + v * 7) % 32
+				_fill(img, seam, by6, 1, 8, Color("#6f4e2b"))
+				_fill(img, seam + 3, by6 + 3, 1, 1, Color("#5e4126"))
+				_fill(img, seam + 20, by6 + 4, 1, 1, Color("#5e4126"))
 		"l":
-			_fill(img, 0, 0, 16, 16, Color("#8d8578"))
+			_fill(img, 0, 0, 32, 32, Color("#8d8578"))
 			for a4 in 2:
 				for b4 in 2:
 					var tone4 := Color("#b0a898") if (a4 + b4) % 2 == 1 else Color("#9d9486")
-					_fill(img, b4 * 8 + 1, a4 * 8 + 1, 6, 6, tone4)
-					_fill(img, b4 * 8 + 1, a4 * 8 + 1, 6, 1, tone4.lightened(0.16))
-					_fill(img, b4 * 8 + 1, a4 * 8 + 6, 6, 1, tone4.darkened(0.2))
+					_fill(img, b4 * 16 + 2, a4 * 16 + 2, 12, 12, tone4)
+					_fill(img, b4 * 16 + 2, a4 * 16 + 2, 12, 2, tone4.lightened(0.18))
+					_fill(img, b4 * 16 + 2, a4 * 16 + 12, 12, 2, tone4.darkened(0.22))
 		"D", "*":
+			# cave floor: worn rock with grit and the odd pebble
 			var cbase := Color("#4a3c48") if ch == "*" else Color("#332a33")
-			_fill(img, 0, 0, 16, 16, cbase)
-			for i in 7:
-				var bx7 := int(r.call(i) * 15)
-				var by7 := 2 + int(r.call(i + 8) * 11)
-				_fill(img, bx7, by7, 1, 1, cbase.darkened(0.3))
+			_fill(img, 0, 0, 32, 32, cbase)
+			for i in 6:
+				_dith(img, int(r.call(i + 30) * 24), int(r.call(i + 36) * 26), 10, 5,
+					cbase.lightened(0.12), cbase)
+			for i in 18:
+				var bx7 := int(r.call(i) * 30)
+				var by7 := 2 + int(r.call(i + 8) * 27)
+				_fill(img, bx7, by7, 2, 2, cbase.darkened(0.34))
 				if i % 2 == 0:
-					_fill(img, bx7, by7 - 1, 1, 1, cbase.lightened(0.25))
+					_fill(img, bx7, by7 - 1, 2, 1, cbase.lightened(0.28))
 		"X":
-			_fill(img, 0, 0, 16, 16, Color("#1d161c"))
-			_ellipse(img, 8, 8, 8, 8, Color("#332734"))
-			_ellipse(img, 7, 7, 6, 5, Color("#423444"))
-			_ellipse(img, 6, 6, 4, 3, Color("#4f3f50"))
-			_fill(img, 4, 3, 2, 1, Color("#61506a"))
-			_dith(img, 0, 13, 16, 3, Color("#241c26"), Color("#150f18"))
+			# cave rock, catching a little light on its upper left
+			_fill(img, 0, 0, 32, 32, Color("#1d161c"))
+			_ellipse(img, 16, 16, 16, 16, Color("#332734"))
+			_ellipse(img, 14, 14, 12, 10, Color("#423444"))
+			_ellipse(img, 12, 12, 8, 6, Color("#4f3f50"))
+			_ellipse(img, 10, 10, 4, 3, Color("#5d4c60"))
+			_fill(img, 8, 6, 4, 2, Color("#61506a"))
+			_dith(img, 0, 24, 32, 8, Color("#241c26"), Color("#150f18"))
+			for i in 6:
+				_fill(img, int(r.call(i) * 28), 4 + int(r.call(i + 9) * 22), 2, 1,
+					Color("#2a212c"))
 		"b":
-			_fill(img, 0, 0, 16, 16, Color("#9a7448"))
-			_fill(img, 1, 1, 14, 14, Color("#c8c0b0"))
-			_fill(img, 2, 2, 12, 4, Color("#e8e4dc"))
-			_fill(img, 2, 2, 12, 1, Color("#f6f4ee"))
-			_fill(img, 1, 8, 14, 7, Color("#7a3840"))
-			_fill(img, 1, 8, 14, 1, Color("#a85058"))
-			_fill(img, 1, 14, 14, 1, Color("#5c272e"))
+			# a bed: frame, sheet, turned-down top and a pillow
+			_fill(img, 0, 0, 32, 32, Color("#9a7448"))
+			_fill(img, 2, 2, 28, 28, Color("#6f4e2b"))
+			_fill(img, 3, 3, 26, 26, Color("#c8c0b0"))
+			_fill(img, 4, 4, 24, 9, Color("#e8e4dc"))
+			_fill(img, 4, 12, 24, 2, Color("#a8a096"))
+			_fill(img, 6, 5, 20, 6, Color("#f4f2ee"))
+			_fill(img, 3, 3, 26, 1, Color("#e8e4dc"))
+			_fill(img, 3, 28, 26, 1, Color("#a8a096"))
+			_dith(img, 4, 20, 24, 8, Color("#bcb4a4"), Color("#c8c0b0"))
 		"c":
-			_fill(img, 0, 0, 16, 16, Color("#9a7448"))
-			_fill(img, 0, 3, 16, 10, Color("#6f4e2b"))
-			_fill(img, 0, 2, 16, 2, Color("#b58e5b"))
-			_fill(img, 0, 1, 16, 1, Color("#cba272"))
-			_fill(img, 0, 12, 16, 1, Color("#4d3419"))
+			# a counter, seen from above with a lit front edge
+			_fill(img, 0, 0, 32, 32, Color("#9a7448"))
+			_fill(img, 0, 4, 32, 24, Color("#7b5230"))
+			_fill(img, 0, 4, 32, 3, Color("#a97a4c"))
+			_fill(img, 0, 25, 32, 3, Color("#4d3319"))
+			for i in 4:
+				_fill(img, i * 8 + 3, 9, 2, 14, Color("#6b4629"))
+			_fill(img, 0, 7, 32, 1, Color("#c09a5e"))
 		"t":
-			_fill(img, 0, 0, 16, 16, Color("#9a7448"))
-			_fill(img, 1, 3, 14, 9, Color("#7f5730"))
-			_fill(img, 1, 3, 14, 2, Color("#a87a48"))
-			_fill(img, 1, 3, 14, 1, Color("#c1904f"))
-			_fill(img, 1, 11, 14, 1, Color("#5d3d1c"))
-			_fill(img, 3, 12, 2, 3, Color("#5d3d1c"))
-			_fill(img, 11, 12, 2, 3, Color("#5d3d1c"))
+			_fill(img, 0, 0, 32, 32, Color("#9a7448"))
+			_ellipse(img, 17, 19, 13, 10, Color("#4d3319"))
+			_ellipse(img, 16, 17, 13, 10, Color("#8a5c35"))
+			_ellipse(img, 14, 14, 9, 6, Color("#a97a4c"))
+			_fill(img, 12, 9, 6, 2, Color("#c09a5e"))
 		"p":
-			_fill(img, 0, 0, 16, 16, Color("#9a7448"))
-			_ellipse(img, 8, 13, 5, 2, Color("#6f4e2b"))
-			_ellipse(img, 8, 9, 6, 6, Color("#6d4820"))
-			_ellipse(img, 7, 8, 4, 4, Color("#8a5c2a"))
-			_fill(img, 2, 5, 12, 2, Color("#4a3113"))
-			_fill(img, 2, 11, 12, 2, Color("#4a3113"))
-			_ellipse(img, 8, 4, 6, 2, Color("#a87a48"))
+			# a barrel, hooped
+			_fill(img, 0, 0, 32, 32, Color("#9a7448"))
+			_ellipse(img, 17, 28, 11, 3, Color("#4d3319"))
+			_fill(img, 6, 6, 21, 23, Color("#7b5230"))
+			_fill(img, 6, 6, 6, 23, Color("#96663d"))
+			_fill(img, 23, 6, 4, 23, Color("#5f4023"))
+			for yy3 in [9, 17, 25]:
+				_fill(img, 5, yy3, 23, 2, Color("#4d3319"))
+				_fill(img, 5, yy3, 23, 1, Color("#8a6c47"))
+			_ellipse(img, 16, 7, 10, 3, Color("#a97a4c"))
+			_ellipse(img, 15, 6, 8, 2, Color("#c09a5e"))
 		"g":
-			_fill(img, 0, 0, 16, 16, Color("#3e7a42"))
-			_ellipse(img, 8, 15, 6, 2, Color("#2f6135"))
-			_fill(img, 4, 4, 8, 11, Color("#7f7a76"))
-			_ellipse(img, 8, 4, 4, 3, Color("#7f7a76"))
-			_fill(img, 4, 4, 1, 11, Color("#9d9894"))
-			_fill(img, 11, 4, 1, 11, Color("#605c58"))
-			_fill(img, 6, 6, 4, 1, Color("#4e4a47"))
-			_fill(img, 7, 5, 2, 4, Color("#4e4a47"))
+			# a headstone, leaning very slightly
+			_fill(img, 0, 0, 32, 32, Color("#4a7a44"))
+			_ellipse(img, 17, 28, 11, 3, Color("#3c6438"))
+			_fill(img, 8, 8, 16, 21, Color("#6f6a64"))
+			_fill(img, 8, 8, 5, 21, Color("#8d8880"))
+			_fill(img, 20, 8, 4, 21, Color("#514c47"))
+			_disc(img, 16, 9, 8, Color("#6f6a64"))
+			_disc(img, 14, 8, 6, Color("#8d8880"))
+			_fill(img, 12, 16, 8, 2, Color("#514c47"))
+			_fill(img, 15, 13, 2, 8, Color("#514c47"))
+			_fill(img, 6, 27, 20, 3, Color("#5b5650"))
 		"S":
-			_fill(img, 0, 0, 16, 16, Color("#3e7a42"))
-			_fill(img, 7, 8, 2, 7, Color("#5a3f21"))
-			_fill(img, 7, 8, 1, 7, Color("#7a5a34"))
-			_fill(img, 2, 2, 12, 7, Color("#9a7748"))
-			_fill(img, 2, 2, 12, 1, Color("#c39960"))
-			_fill(img, 2, 8, 12, 1, Color("#6d4f28"))
+			# a signpost: a board on a stake with writing scratched on it
+			_fill(img, 0, 0, 32, 32, Color("#4a7a44"))
+			_ellipse(img, 17, 29, 8, 2, Color("#3c6438"))
+			_fill(img, 14, 16, 4, 14, Color("#5f4526"))
+			_fill(img, 14, 16, 2, 14, Color("#8a6a40"))
+			_fill(img, 3, 5, 26, 13, Color("#4d3319"))
+			_fill(img, 4, 6, 24, 11, Color("#a3814f"))
+			_fill(img, 4, 6, 24, 2, Color("#c09a5e"))
 			for i in 3:
-				_fill(img, 4, 4 + i * 2, 8, 1, Color("#5a3f21"))
+				_fill(img, 7, 9 + i * 3, 14 - i * 3, 1, Color("#6b4e2b"))
 		"w":
-			_fill(img, 0, 0, 16, 16, Color("#3e7a42"))
-			_ellipse(img, 8, 10, 6, 5, Color("#6b645a"))
-			_ellipse(img, 8, 9, 5, 4, Color("#8d8578"))
-			_ellipse(img, 8, 10, 4, 3, Color("#101c2a"))
-			_fill(img, 3, 2, 2, 7, Color("#5f4526"))
-			_fill(img, 11, 2, 2, 7, Color("#5f4526"))
-			_fill(img, 2, 1, 12, 2, Color("#8a3830"))
-			_fill(img, 2, 0, 12, 1, Color("#b04c40"))
+			# a well: a stone ring with dark water and a little roof beam
+			_fill(img, 0, 0, 32, 32, Color("#4a7a44"))
+			_ellipse(img, 17, 25, 13, 6, Color("#3c6438"))
+			_ellipse(img, 16, 22, 13, 8, Color("#5b5650"))
+			_ellipse(img, 15, 20, 12, 7, Color("#8d8578"))
+			_ellipse(img, 16, 21, 8, 4, Color("#1a2430"))
+			_ellipse(img, 15, 20, 6, 3, Color("#101820"))
+			_fill(img, 7, 4, 3, 16, Color("#6b4e2b"))
+			_fill(img, 23, 4, 3, 16, Color("#6b4e2b"))
+			_fill(img, 5, 2, 23, 4, Color("#8a3830"))
+			_fill(img, 5, 2, 23, 2, Color("#a04438"))
 		"C":
-			_fill(img, 0, 0, 16, 16, Color("#5c554c"))
-			for yy6 in 16:
-				var half2 := int((yy6 + 1) / 2) + 1
-				_fill(img, maxi(0, 8 - half2), yy6, half2, 1, Color("#7d766a"))
-				_fill(img, 8, yy6, half2, 1, Color("#4e483f"))
-			_ellipse(img, 8, 12, 7, 9, Color("#120e14"))
-			_ellipse(img, 8, 13, 5, 7, Color("#050307"))
-			_fill(img, 2, 3, 12, 1, Color("#8d8578"))
+			# a mouth in the rock, dark all the way in
+			_fill(img, 0, 0, 32, 32, Color("#6b645a"))
+			for i in 32:
+				var half2 := int((i + 1) / 2) + 2
+				_fill(img, maxi(0, 16 - half2), i, half2, 1, Color("#7d766a"))
+				_fill(img, 16, i, half2, 1, Color("#4e483f"))
+			_ellipse(img, 16, 24, 14, 18, Color("#120e14"))
+			_ellipse(img, 16, 26, 10, 14, Color("#050307"))
+			_fill(img, 4, 6, 24, 2, Color("#8d8578"))
+			_fill(img, 6, 4, 20, 2, Color("#9a9186"))
 		"m":
-			_fill(img, 0, 0, 16, 16, Color("#000000"))
+			_fill(img, 0, 0, 32, 32, Color("#000000"))
 		_:
-			_fill(img, 0, 0, 16, 16, Color("#3e7a42"))
+			_fill(img, 0, 0, 32, 32, Color("#4a7a44"))
 	return img
 
 

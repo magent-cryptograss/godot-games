@@ -114,15 +114,15 @@ enum { FACE_FRONT, FACE_RIGHT, FACE_LEFT }
 
 ## The middle of the figure. The legs are drawn either side of it, so this is
 ## where they have to be split for them to scissor rather than slide.
-const MID := 12
+const MID := 16
 
 ## How far a leg swings, in pixels. One pixel on a 24-wide figure is a shuffle;
 ## two is a stride you can see at a glance.
-const STRIDE := 2
+const STRIDE := 3
 
 ## Rows. Below TORSO_Y is arms and body, below LEG_Y is legs.
-const TORSO_Y := 17
-const LEG_Y := 26
+const TORSO_Y := 26
+const LEG_Y := 38
 
 
 ## Draw a palette-index sprite, animating a walk out of one still drawing.

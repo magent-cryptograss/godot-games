@@ -15,13 +15,15 @@ const KB_ROWS := [
 ]
 
 const ED_GX := 8
-const ED_GY := 26
-# 5px cells on a 24x32 grid: finer pixels than the old 6px on 16x24, and the
-# drawing area stays about the same size on screen
-const ED_CELL := 5
-const PAL_X := 136
-const PAL_Y := 30
+const ED_GY := 32
+# 6px cells on a 32x48 grid: 192 by 288, which fills the left of the screen and
+# leaves the right for the palette, the four facings and the key list
+const ED_CELL := 6
+const PAL_X := 212
+const PAL_Y := 42
 const PAL_CELL := 11
+## Where the right-hand column of panels starts
+const SIDE_X := 352.0
 
 var step := "name"
 var pname := ""
@@ -344,7 +346,7 @@ func up_editor(dt: float) -> void:
 		var y := PAL_Y + int(i / 8) * PAL_CELL
 		if hit(x, y, PAL_CELL, PAL_CELL) and _click():
 			colour = i
-	if hit(232, 190, 76, 18) and _click():
+	if hit(SIDE_X, 206, 120, 22) and _click():
 		finish_editor()
 
 
@@ -515,7 +517,7 @@ func draw_gallery() -> void:
 
 func draw_editor() -> void:
 	PixelFont.draw(self, "Draw yourself", Vector2(12, 8), UI.COL_TEXT, {"outline": UI.COL_INK})
-	PixelFont.draw_right(self, "mirror: " + ("on" if mirror else "off"), 308, 8,
+	PixelFont.draw_right(self, "mirror: " + ("on" if mirror else "off"), UI.SCREEN_W - 12, 8,
 		UI.COL_GREEN if mirror else UI.COL_FAINT)
 
 	var gw := Sprites.W * ED_CELL
@@ -527,8 +529,10 @@ func draw_editor() -> void:
 			var c: Color = Sprites.PALETTE[v] if v != 0 else (Color("#2a2448") if (x + y) % 2 == 1 else Color("#332a54"))
 			UI.rect(self, ED_GX + x * ED_CELL, ED_GY + y * ED_CELL, ED_CELL, ED_CELL, c)
 	# guides at the centre line and the waist
-	UI.rect(self, ED_GX + 12 * ED_CELL, ED_GY, 1, gh, Color(0.66, 0.88, 0.97, 0.25))
-	UI.rect(self, ED_GX, ED_GY + 26 * ED_CELL, gw, 1, Color(0.66, 0.88, 0.97, 0.25))
+	UI.rect(self, ED_GX + int(Sprites.W / 2) * ED_CELL, ED_GY, 1, gh,
+		Color(0.66, 0.88, 0.97, 0.25))
+	UI.rect(self, ED_GX, ED_GY + int(Sprites.H * 3 / 4) * ED_CELL, gw, 1,
+		Color(0.66, 0.88, 0.97, 0.25))
 	# cursor
 	var cxp := ED_GX + cx * ED_CELL
 	var cyp := ED_GY + cy * ED_CELL
@@ -566,33 +570,33 @@ func draw_editor() -> void:
 	# All four at once, with the one being drawn ringed. A facing that has not
 	# been touched shows the automatic version, so you can see what you are
 	# getting for free before deciding whether to draw it yourself.
-	UI.window(self, 234, 22, 82, 120, {"alpha": 0.8})
-	PixelFont.draw_centered(self, "press 1-4", 275, 26, Color("#9890b8"))
-	PixelFont.draw(self, "drawing: " + dir, Vector2(122, 8), UI.COL_GOLD)
+	UI.window(self, SIDE_X, 22, 120, 176, {"alpha": 0.8})
+	PixelFont.draw_centered(self, "press 1-4", SIDE_X + 60, 26, Color("#9890b8"))
+	PixelFont.draw(self, "drawing: " + dir, Vector2(196, 8), UI.COL_GOLD)
 	grids[dir] = spr
 	for i in DIRS.size():
 		var d: String = DIRS[i]
 		var g: PackedByteArray = grids[d] if (bool(hand.get(d, false)) and grids.has(d)) else _derive(d)
-		var gx := 240 + (i % 2) * 38
-		var gy := 38 + int(i / 2) * 46
+		var gx := SIDE_X + 10 + (i % 2) * 54
+		var gy := 38 + int(i / 2) * 70
 		if d == dir:
-			UI.rect(self, gx - 2, gy - 2, 28, 36, Color("#5a4a98"))
-			UI.rect(self, gx - 1, gy - 1, 26, 34, Color(0.09, 0.07, 0.16, 0.9))
+			UI.rect(self, gx - 3, gy - 3, Sprites.W + 6, Sprites.H + 6, Color("#5a4a98"))
+			UI.rect(self, gx - 2, gy - 2, Sprites.W + 4, Sprites.H + 4,
+				Color(0.09, 0.07, 0.16, 0.9))
 		draw_sprite_grid(g, gx, gy, 1, false)
-		# the direction alone: "3 left" and "4 right" side by side are wider than
-		# the two cells they sit under, and ran into each other. Which key is
-		# which is on the help line along the bottom.
-		PixelFont.draw_centered(self, d, gx + 12, gy + 34,
+		PixelFont.draw_centered(self, d, gx + int(Sprites.W / 2), gy + Sprites.H + 2,
 			UI.COL_GOLD if d == dir else UI.COL_FAINT)
 
-	UI.window(self, 8, 184, 214, 56, {"alpha": 0.82})
-	PixelFont.draw(self, "move: arrows   paint: Z   erase: X", Vector2(16, 192), Color("#c8c0dc"))
-	PixelFont.draw(self, "colour: Q/E or click   fill: F", Vector2(16, 204), Color("#c8c0dc"))
-	PixelFont.draw(self, "mirror: M  undo: U  clear: R  template: T", Vector2(16, 216), Color("#c8c0dc"))
-	PixelFont.draw(self, "facing: 1 down  2 up  3 left  4 right", Vector2(16, 228), UI.COL_GOLD)
-	var hot := hit(232, 190, 76, 18)
-	UI.window(self, 232, 190, 76, 18, {"top": Color("#5a4a98")} if hot else {})
-	PixelFont.draw_centered(self, "ENTER  done", 270, 196, Color("#fff4c0") if hot else UI.COL_GOLD)
+	UI.window(self, PAL_X, 236, UI.SCREEN_W - PAL_X - 8, 78, {"alpha": 0.82})
+	PixelFont.draw(self, "move: arrows   paint: Z   erase: X", Vector2(PAL_X + 8, 244), Color("#c8c0dc"))
+	PixelFont.draw(self, "colour: Q/E or click   fill: F", Vector2(PAL_X + 8, 258), Color("#c8c0dc"))
+	PixelFont.draw(self, "mirror: M  undo: U  clear: R", Vector2(PAL_X + 8, 272), Color("#c8c0dc"))
+	PixelFont.draw(self, "template: T", Vector2(PAL_X + 8, 286), Color("#c8c0dc"))
+	PixelFont.draw(self, "facing: 1 down  2 up  3 left  4 right", Vector2(PAL_X + 8, 300), UI.COL_GOLD)
+	var hot := hit(SIDE_X, 206, 120, 22)
+	UI.window(self, SIDE_X, 206, 120, 22, {"top": Color("#5a4a98")} if hot else {})
+	PixelFont.draw_centered(self, "ENTER  done", SIDE_X + 60, 213,
+		Color("#fff4c0") if hot else UI.COL_GOLD)
 
 
 func draw_instrument() -> void:

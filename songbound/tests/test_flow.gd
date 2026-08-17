@@ -65,35 +65,40 @@ func _check_blank_sprite() -> void:
 ## of it. The legs are drawn at columns 8 to 15, so both legs were always on the
 ## same side of that line and moved together -- a limp, not a walk.
 func _check_walk() -> void:
-	# a leg pixel either side of the middle, on a striding frame
-	var l_front := UI.walk_offset(9, 28, 1, 0, UI.FACE_FRONT)
-	var l_back := UI.walk_offset(14, 28, 1, 0, UI.FACE_FRONT)
+	# A leg pixel either side of the middle, on a striding frame. The probes are
+	# taken from the figure's own measurements rather than written as numbers --
+	# when the sprites grew from 24x32 to 32x48 the old fixed coordinates stopped
+	# landing on legs at all, and the test failed while the code was fine.
+	var leg_y: int = UI.LEG_Y + 4
+	var arm_y: int = UI.TORSO_Y + 4
+	var l_front := UI.walk_offset(UI.MID - 4, leg_y, 1, 0, UI.FACE_FRONT)
+	var l_back := UI.walk_offset(UI.MID + 3, leg_y, 1, 0, UI.FACE_FRONT)
 	_expect(l_front.x != 0 and l_back.x != 0 and sign(l_front.x) != sign(l_back.x),
 		"seen from the front, the legs scissor (%d and %d)" % [l_front.x, l_back.x])
 
 	# in profile, the same
-	var s_front := UI.walk_offset(14, 28, 1, 0, UI.FACE_RIGHT)
-	var s_back := UI.walk_offset(10, 28, 1, 0, UI.FACE_RIGHT)
+	var s_front := UI.walk_offset(UI.MID + 3, leg_y, 1, 0, UI.FACE_RIGHT)
+	var s_back := UI.walk_offset(UI.MID - 4, leg_y, 1, 0, UI.FACE_RIGHT)
 	_expect(s_front.x != 0 and s_back.x != 0 and sign(s_front.x) != sign(s_back.x),
 		"in profile, the legs scissor (%d and %d)" % [s_front.x, s_back.x])
 
 	# and the arm swings against the leading leg, which is the thing that makes
 	# a side-on walk read as walking rather than sliding
-	var arm := UI.walk_offset(15, 20, 1, 0, UI.FACE_RIGHT)
+	var arm := UI.walk_offset(UI.MID + 4, arm_y, 1, 0, UI.FACE_RIGHT)
 	_expect(arm.x != 0 and sign(arm.x) != sign(s_front.x),
 		"in profile, the arm swings against the leading leg (%d vs %d)" % [arm.x, s_front.x])
 
 	# facing left is the same cycle, reflected
-	var left_front := UI.walk_offset(9, 28, 1, 0, UI.FACE_LEFT)
+	var left_front := UI.walk_offset(UI.MID - 4, leg_y, 1, 0, UI.FACE_LEFT)
 	_expect(sign(left_front.x) == sign(s_front.x) * -1 or left_front.x != s_front.x,
 		"facing left strides the other way (%d vs %d)" % [left_front.x, s_front.x])
 
 	# standing still means standing still
-	var still := UI.walk_offset(9, 28, 0, 0, UI.FACE_RIGHT)
+	var still := UI.walk_offset(UI.MID - 4, leg_y, 0, 0, UI.FACE_RIGHT)
 	_expect(still == Vector2i.ZERO, "a standing frame does not move (%s)" % str(still))
 
 	# and the weight shift lifts the upper body without shoving it sideways
-	var head := UI.walk_offset(12, 6, 1, 1, UI.FACE_RIGHT)
+	var head := UI.walk_offset(UI.MID, 6, 1, 1, UI.FACE_RIGHT)
 	_expect(head.y == 1 and head.x == 0, "the body bobs without sliding (%s)" % str(head))
 
 

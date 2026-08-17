@@ -8,7 +8,7 @@ signal open_shop(list: Array)
 signal open_inn(price: int)
 signal open_menu
 
-const TS := 16
+const TS := 32
 const MOVE_TIME := 0.15
 const MSG_ROWS := 4
 const MSG_PX := 280
@@ -361,7 +361,7 @@ func _draw() -> void:
 				# gd is already the correct-facing drawing, so it must not be
 				# flipped again on top of that
 				UI.sprite(self, gd,
-					n.x * TS - cam.x - 4, n.y * TS - cam.y - 16, 1, false,
+					n.x * TS - cam.x, n.y * TS - cam.y - 16, 1, false,
 					false, 0, null, nlook)
 			"boss":
 				var b = item.ref
@@ -369,9 +369,9 @@ func _draw() -> void:
 					b.x * TS - cam.x - 14, b.y * TS - cam.y - 22, t)
 			"player":
 				var p := Game.player
-				# a 24x32 sprite overhangs a 16px tile: half a tile each side,
-				# and a full tile above, so the feet still sit on the tile
-				var px := pos.x * TS + offset.x - cam.x - 4
+				# a 32x48 sprite is exactly a tile wide and half a tile taller,
+				# so it hangs above the tile and the feet still sit on it
+				var px := pos.x * TS + offset.x - cam.x
 				var py := pos.y * TS + offset.y - cam.y - 16
 				UI.shadow(self, px + 12, py + 31, 7, 2)
 				# each facing is its own drawing now, so nothing is flipped here

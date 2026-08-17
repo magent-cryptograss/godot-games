@@ -8,7 +8,7 @@ extends Node2D
 ##   xvfb-run -a godot --path <proj> res://tests/TestWalk.tscn --rendering-driver opengl3
 
 const OUT_DIR := "user://shots/"
-const SC := 2
+const SC := 1
 
 var frames := 0
 
@@ -28,14 +28,14 @@ func _draw() -> void:
 	# facings down the page, frames across it. Four 32-tall sprites will not fit
 	# in four rows at any scale above 1 on a 240-tall screen.
 	for f in 4:
-		PixelFont.draw(self, "frame %d" % f, Vector2(74 + f * 96, 8), UI.COL_FAINT)
+		PixelFont.draw(self, "frame %d" % f, Vector2(80 + f * 100, 8), UI.COL_FAINT)
 	for r in dirs.size():
 		var d: String = dirs[r][0]
 		var look: int = dirs[r][1]
-		var y := 24 + r * 82
-		PixelFont.draw(self, d, Vector2(8, y + 28), UI.COL_GOLD)
+		var y := 22 + r * 84
+		PixelFont.draw(self, d, Vector2(8, y + 20), UI.COL_GOLD)
 		for f in 4:
-			var x := 70 + f * 96
+			var x := 80 + f * 100
 			UI.rect(self, x - 3, y - 3, Sprites.W * SC + 6, Sprites.H * SC + 6,
 				Color(0, 0, 0, 0.28))
 			UI.sprite(self, p.view(d), x, y, SC, false, true, f, null, look)

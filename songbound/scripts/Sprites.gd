@@ -4,8 +4,11 @@ extends RefCounted
 ## The same format is used by the editor, the presets and the field renderer,
 ## so anything you can draw, the game can animate.
 
-const W := 24
-const H := 32
+## Characters are 32 wide and 48 tall -- one tile across and a tile and a half
+## up, against 32-pixel tiles. At 24x32 the figure was smaller than a single
+## tile and less detailed than the ground it stood on.
+const W := 32
+const H := 48
 
 const PALETTE := [
 	Color(0, 0, 0, 0),                                                    # 0 transparent
@@ -142,112 +145,113 @@ static func build(o: Dictionary) -> PackedByteArray:
 			for x in range(x0, x1 + 1):
 				set_px(s, x, y, v)
 
-	# ---- head: rows 3-15, a good third of the figure ----
-	fill.call(7, 3, 16, 14, skin)
-	fill.call(6, 5, 6, 11, skin)          # cheeks
-	fill.call(17, 5, 17, 11, skin)
-	# the jaw narrows toward the chin; a head as wide at the chin as at the
-	# temples reads as a box with a face drawn on it
-	fill.call(7, 13, 7, 14, 0)
-	fill.call(16, 13, 16, 14, 0)
-	fill.call(8, 14, 8, 14, 0)
-	fill.call(15, 14, 15, 14, 0)
-	fill.call(8, 13, 15, 14, skin_d)      # under the jaw
-	fill.call(9, 15, 14, 15, skin_d)      # neck
-	fill.call(9, 15, 14, 15, skin_d)
+	# ---- head: rows 4-21, a good third of the figure ----
+	fill.call(9, 4, 22, 21, skin)
+	fill.call(8, 7, 8, 17, skin)          # cheeks
+	fill.call(23, 7, 23, 17, skin)
+	# the jaw narrows toward the chin; as wide at the chin as at the temples
+	# reads as a box with a face drawn on it
+	fill.call(9, 19, 9, 21, 0)
+	fill.call(22, 19, 22, 21, 0)
+	fill.call(10, 21, 10, 21, 0)
+	fill.call(21, 21, 21, 21, 0)
+	fill.call(10, 19, 21, 21, skin_d)     # under the jaw
+	fill.call(13, 22, 18, 23, skin_d)     # neck
 
 	if not outline_only:
-		# Eyes big enough to have parts: a white, a dark iris, a lash line over
-		# the top and one pixel of catchlight. The catchlight is what stops the
-		# face looking painted on.
-		# Two across, not three: three reads as goggles at this size. White,
-		# iris, and one pixel of catchlight in the corner, which is the whole
-		# difference between a face and a face painted on.
-		fill.call(9, 8, 10, 9, 6)
-		fill.call(13, 8, 14, 9, 6)
-		fill.call(9, 9, 10, 9, 22)         # iris sits low in the white
-		fill.call(13, 9, 14, 9, 22)
-		fill.call(9, 8, 9, 8, 6)           # catchlight
-		fill.call(13, 8, 13, 8, 6)
-		fill.call(9, 7, 10, 7, OUT)        # lashes
-		fill.call(13, 7, 14, 7, OUT)
-		fill.call(11, 10, 12, 11, skin_d)  # nose
-		fill.call(11, 11, 11, 11, 0)
-		fill.call(10, 13, 13, 13, skin_d)  # mouth
-		fill.call(11, 13, 12, 13, 13)
+		# Eyes with parts: a white, an iris sitting low in it, a lash line over
+		# the top and one pixel of catchlight. The catchlight is the difference
+		# between a face and a face painted on.
+		fill.call(11, 12, 14, 15, 6)
+		fill.call(17, 12, 20, 15, 6)
+		fill.call(12, 13, 14, 15, 22)     # iris
+		fill.call(17, 13, 19, 15, 22)
+		fill.call(13, 14, 13, 15, 1)      # pupil
+		fill.call(18, 14, 18, 15, 1)
+		fill.call(12, 13, 12, 13, 6)      # catchlight
+		fill.call(17, 13, 17, 13, 6)
+		fill.call(11, 11, 14, 11, OUT)    # lashes
+		fill.call(17, 11, 20, 11, OUT)
+		fill.call(11, 9, 14, 9, skin_d)   # brows
+		fill.call(17, 9, 20, 9, skin_d)
+		fill.call(15, 15, 16, 17, skin_d) # nose
+		fill.call(15, 16, 15, 16, 0)
+		fill.call(13, 19, 18, 19, skin_d) # mouth
+		fill.call(14, 19, 17, 19, 13)
 
 	# ---- hair ----
 	if style != "bald":
-		fill.call(6, 1, 17, 4, hair)
-		fill.call(7, 0, 16, 0, hair)
-		fill.call(5, 3, 5, 9, hair)        # sideburns down each side
-		fill.call(18, 3, 18, 9, hair)
+		# The crown only, stopping above the brows. Taken down to row 8 across
+		# the full width it swallowed the face and the figure became a haircut
+		# with legs.
+		fill.call(9, 2, 22, 7, hair)
+		fill.call(10, 0, 21, 1, hair)
+		fill.call(8, 4, 8, 11, hair)      # sideburns, short
+		fill.call(23, 4, 23, 11, hair)
+		fill.call(9, 8, 12, 8, hair)      # a little fringe at the temples
+		fill.call(19, 8, 22, 8, hair)
 		if not outline_only:
-			# a touch of shadow under the fringe, at the temples only -- across
-			# the whole brow it just makes the face murky
-			fill.call(7, 5, 8, 5, DARKER.get(skin, skin_d))
-			fill.call(15, 5, 16, 5, DARKER.get(skin, skin_d))
-			# and catches the light along its upper left
+			# a little shade under the fringe at the temples -- across the whole
+			# brow it only makes the face murky
+			fill.call(9, 9, 11, 9, DARKER.get(skin, skin_d))
+			fill.call(20, 9, 22, 9, DARKER.get(skin, skin_d))
 			var hair_lit: int = LIGHTER.get(hair, hair)
-			fill.call(7, 1, 12, 1, hair_lit)
-			fill.call(6, 2, 9, 2, hair_lit)
-			fill.call(5, 3, 5, 5, hair_lit)
+			fill.call(11, 2, 17, 3, hair_lit)
+			fill.call(9, 4, 13, 5, hair_lit)
+			fill.call(8, 5, 8, 8, hair_lit)
 		if style == "fringe":
-			fill.call(7, 5, 16, 6, hair)
-			fill.call(8, 7, 11, 7, hair)
+			fill.call(9, 8, 22, 10, hair)
 		if style == "tall":
-			fill.call(8, -2 + 2, 15, 0, hair)
-			fill.call(10, 0, 13, 0, hair)
+			fill.call(11, 0, 20, 1, hair)
+			fill.call(14, 0, 18, 0, hair)
 		if long_hair:
-			fill.call(4, 4, 5, 18, hair)
-			fill.call(18, 4, 19, 18, hair)
-			fill.call(4, 18, 6, 19, hair)
-			fill.call(17, 18, 19, 19, hair)
+			fill.call(6, 6, 8, 30, hair)
+			fill.call(23, 6, 25, 30, hair)
+			fill.call(6, 30, 9, 32, hair)
+			fill.call(22, 30, 25, 32, hair)
 	if o.has("hat"):
-		fill.call(4, 2, 19, 4, o.get("hat"))
-		fill.call(7, 0, 16, 2, o.get("hat"))
-		fill.call(4, 4, 19, 4, o.get("hatBand", o.get("hat")))
+		fill.call(5, 3, 26, 7, o.get("hat"))
+		fill.call(10, 0, 21, 3, o.get("hat"))
+		fill.call(5, 7, 26, 7, o.get("hatBand", o.get("hat")))
 
-	# ---- torso: rows 16-25 ----
-	fill.call(7, 16, 16, 25, shirt)
-	fill.call(7, 16, 7, 16, 0)             # shoulders slope rather than square
-	fill.call(16, 16, 16, 16, 0)
-	fill.call(8, 16, 15, 16, LIGHTER.get(shirt, shirt))   # light on the shoulders
-	fill.call(7, 23, 16, 25, shirt_d)      # hem in shadow
-	fill.call(11, 16, 12, 25, shirt_d)     # a fold down the middle
+	# ---- torso: rows 24-37 ----
+	fill.call(9, 24, 22, 37, shirt)
+	fill.call(9, 24, 10, 24, 0)           # shoulders slope rather than square
+	fill.call(21, 24, 22, 24, 0)
+	fill.call(11, 24, 20, 25, LIGHTER.get(shirt, shirt))
+	fill.call(9, 34, 22, 37, shirt_d)     # hem in shadow
+	fill.call(15, 24, 16, 37, shirt_d)    # a fold down the middle
 	if not outline_only:
-		# where the sleeve meets the body, and nothing across the chest -- two
-		# dark bars down the front read as a pair of braces
-		fill.call(8, 17, 8, 20, shirt_d)
-		fill.call(15, 17, 15, 20, shirt_d)
+		# where the sleeve meets the body; nothing across the chest, which reads
+		# as a pair of braces
+		fill.call(11, 26, 11, 31, shirt_d)
+		fill.call(20, 26, 20, 31, shirt_d)
 	if o.has("vest"):
-		fill.call(8, 16, 9, 24, o.get("vest"))
-		fill.call(14, 16, 15, 24, o.get("vest"))
+		fill.call(11, 24, 13, 36, o.get("vest"))
+		fill.call(18, 24, 20, 36, o.get("vest"))
 	if o.has("belt"):
-		fill.call(7, 24, 16, 25, o.get("belt"))
+		fill.call(9, 35, 22, 37, o.get("belt"))
 
 	# ---- arms ----
-	fill.call(4, 17, 6, 24, shirt)
-	fill.call(17, 17, 19, 24, shirt)
-	fill.call(4, 23, 6, 24, shirt_d)
-	fill.call(17, 23, 19, 24, shirt_d)
-	fill.call(4, 25, 6, 27, skin)          # hands
-	fill.call(17, 25, 19, 27, skin)
+	fill.call(5, 25, 8, 36, shirt)
+	fill.call(23, 25, 26, 36, shirt)
+	fill.call(5, 34, 8, 36, shirt_d)
+	fill.call(23, 34, 26, 36, shirt_d)
+	fill.call(5, 37, 8, 40, skin)         # hands
+	fill.call(23, 37, 26, 40, skin)
 
 	# ---- legs ----
-	fill.call(8, 26, 15, 30, pants)
+	fill.call(11, 38, 20, 45, pants)
 	if not outline_only:
-		fill.call(11, 27, 12, 30, 0)       # daylight between the legs
-		fill.call(10, 27, 10, 30, DARKER.get(pants, pants))
-		fill.call(13, 27, 13, 30, DARKER.get(pants, pants))
-	fill.call(8, 30, 15, 30, DARKER.get(pants, pants))
-	fill.call(8, 31, 10, 31, shoe)
-	fill.call(13, 31, 15, 31, shoe)
+		fill.call(15, 40, 16, 45, 0)      # daylight between the legs
+		fill.call(14, 40, 14, 45, DARKER.get(pants, pants))
+		fill.call(17, 40, 17, 45, DARKER.get(pants, pants))
+	fill.call(11, 45, 20, 45, DARKER.get(pants, pants))
+	fill.call(10, 46, 14, 47, shoe)
+	fill.call(17, 46, 21, 47, shoe)
 	if not outline_only:
-		fill.call(8, 31, 10, 31, LIGHTER.get(shoe, shoe))
-		fill.call(13, 31, 15, 31, LIGHTER.get(shoe, shoe))
-	fill.call(7, 31, 7, 31, shoe)
-	fill.call(16, 31, 16, 31, shoe)
+		fill.call(10, 46, 14, 46, LIGHTER.get(shoe, shoe))
+		fill.call(17, 46, 21, 46, LIGHTER.get(shoe, shoe))
 
 	# outline pass: any empty pixel touching a filled one becomes outline
 	var src := s.duplicate()
@@ -296,21 +300,21 @@ static func _common(s: PackedByteArray, x0: int, y0: int, x1: int, y1: int) -> i
 ## Draw the figure in profile, facing right, in the colours of the drawing it is
 ## given. The field flips it for facing left.
 static func side_view(s: PackedByteArray) -> PackedByteArray:
-	var hair := _common(s, 6, 1, 17, 4)
-	var skin := _common(s, 9, 7, 14, 11)
-	var skin_d := _common(s, 8, 13, 15, 14)
-	var shirt := _common(s, 9, 18, 15, 22)
-	var shirt_d := _common(s, 8, 24, 15, 25)
-	var pants := _common(s, 9, 27, 14, 30)
-	var shoe := _common(s, 8, 31, 15, 31)
+	var hair := _common(s, 8, 2, 23, 6)
+	var skin := _common(s, 12, 10, 19, 17)
+	var skin_d := _common(s, 11, 19, 20, 21)
+	var shirt := _common(s, 12, 27, 20, 33)
+	var shirt_d := _common(s, 10, 35, 21, 37)
+	var pants := _common(s, 12, 40, 19, 45)
+	var shoe := _common(s, 11, 46, 20, 47)
 	if skin == 0:
-		skin = _common(s, 6, 3, 17, 14)
+		skin = _common(s, 8, 4, 23, 21)
 	if skin == 0:
 		return s.duplicate()
 	if skin_d == 0:
 		skin_d = skin
 	if shirt == 0:
-		shirt = _common(s, 6, 16, 17, 25)
+		shirt = _common(s, 9, 24, 22, 37)
 	if shirt_d == 0:
 		shirt_d = shirt
 	if pants == 0:
@@ -329,31 +333,32 @@ static func side_view(s: PackedByteArray) -> PackedByteArray:
 				set_px(b, x, y, v)
 
 	# head, narrower than the front and pushed forward
-	fill.call(8, 3, 16, 14, skin)
-	fill.call(9, 13, 16, 14, skin_d)
-	fill.call(17, 8, 17, 10, skin)          # the nose, which is the whole tell
-	fill.call(8, 2, 15, 6, hair)            # crown and the back of the head
-	fill.call(7, 4, 8, 12, hair)
-	fill.call(9, 3, 12, 8, hair)            # fringe over the near eye
-	fill.call(14, 8, 15, 9, OUTLINE)        # one eye, since the other is behind
-	fill.call(15, 8, 15, 8, 6)
-	fill.call(14, 12, 16, 12, skin_d)       # mouth line
-	fill.call(11, 15, 14, 15, skin_d)       # neck
+	fill.call(11, 4, 22, 21, skin)
+	fill.call(12, 19, 22, 21, skin_d)
+	fill.call(23, 12, 23, 15, skin)          # the nose, which is the whole tell
+	fill.call(11, 2, 21, 9, hair)            # crown and the back of the head
+	fill.call(10, 5, 11, 18, hair)
+	fill.call(12, 4, 17, 12, hair)           # fringe over the near eye
+	fill.call(19, 12, 21, 14, 6)             # one eye, the other is behind
+	fill.call(20, 13, 21, 14, 22)
+	fill.call(19, 11, 21, 11, 1)
+	fill.call(20, 18, 22, 18, skin_d)        # mouth line
+	fill.call(15, 22, 19, 23, skin_d)        # neck
 
-	# body, half the width of the front view
-	fill.call(10, 16, 15, 25, shirt)
-	fill.call(10, 23, 15, 25, shirt_d)
+	# body, about half the width of the front view
+	fill.call(13, 24, 21, 37, shirt)
+	fill.call(13, 34, 21, 37, shirt_d)
 	# the near arm, hanging a little forward
-	fill.call(13, 17, 16, 24, shirt)
-	fill.call(13, 23, 16, 24, shirt_d)
-	fill.call(13, 25, 16, 27, skin)
+	fill.call(18, 25, 22, 36, shirt)
+	fill.call(18, 34, 22, 36, shirt_d)
+	fill.call(18, 37, 22, 40, skin)
 
 	# legs together, and the feet point the way the figure is facing
-	fill.call(10, 26, 14, 30, pants)
-	fill.call(10, 31, 16, 31, shoe)
-	fill.call(9, 31, 9, 31, shoe)
+	fill.call(13, 38, 20, 45, pants)
+	fill.call(14, 46, 23, 47, shoe)
+	fill.call(12, 46, 14, 47, shoe)
 
-	# outline, then the same shading pass the front view gets
+	# outline, then the same shading the front view gets
 	var src := b.duplicate()
 	for y in H:
 		for x in W:
@@ -370,8 +375,8 @@ static func side_view(s: PackedByteArray) -> PackedByteArray:
 static func back_view(s: PackedByteArray) -> PackedByteArray:
 	var b := s.duplicate()
 	var tally := {}
-	for y in range(1, 5):
-		for x in range(4, 20):
+	for y in range(2, 8):
+		for x in range(8, 24):
 			var v := get_px(s, x, y)
 			if v != 0 and v != 1:
 				tally[v] = tally.get(v, 0) + 1
@@ -387,7 +392,7 @@ static func back_view(s: PackedByteArray) -> PackedByteArray:
 	# silhouette edge alone so the outline survives. Filling by colour instead
 	# would keep the eyes, which are drawn in the outline colour -- the back of
 	# a head should not be looking at you.
-	for y in range(3, 16):
+	for y in range(4, 22):
 		for x in W:
 			var v := get_px(s, x, y)
 			if v == 0:

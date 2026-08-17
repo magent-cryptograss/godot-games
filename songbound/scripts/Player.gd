@@ -203,6 +203,17 @@ static func from_dict(d: Dictionary) -> Player:
 		for v in d.get(key[0], []):
 			bytes.append(int(v))
 		p.set(key[1], bytes)
+	# A save from before the figures grew holds a 24x32 drawing. It cannot be
+	# stretched into a 32x48 one without looking like a smear, so it is dropped
+	# and the character comes back as a preset rather than as nothing at all.
+	if p.spr.size() != Sprites.W * Sprites.H:
+		p.spr = Sprites.build(Sprites.PRESETS[0].opts)
+		p.back = PackedByteArray()
+		p.side_l = PackedByteArray()
+		p.side_r = PackedByteArray()
+	for key in ["back", "side_l", "side_r"]:
+		if p.get(key).size() != Sprites.W * Sprites.H:
+			p.set(key, PackedByteArray())
 	p.derive_views()
 	p.lv = int(d.get("lv", 1))
 	p.xp = int(d.get("xp", 0))
