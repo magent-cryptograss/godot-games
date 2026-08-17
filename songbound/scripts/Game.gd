@@ -17,9 +17,14 @@ var level_queue: Array[int] = []
 signal level_gained(levels: Array)
 
 
-func new_game(p_name: String, inst_id: String, spr: PackedByteArray, first_element: String) -> Player:
+func new_game(p_name: String, inst_id: String, spr: PackedByteArray, first_element: String,
+		views: Dictionary = {}) -> Player:
 	var p := Player.new(p_name, inst_id, spr)
-	p.back = Sprites.back_view(spr)
+	# whatever the player drew by hand; the rest are filled in from the front
+	p.back = views.get("up", PackedByteArray())
+	p.side_l = views.get("left", PackedByteArray())
+	p.side_r = views.get("right", PackedByteArray())
+	p.derive_views()
 	# level 1 is itself a song level, so the first element pick teaches a song
 	p.apply_level_choice(first_element, 1)
 	player = p

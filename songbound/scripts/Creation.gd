@@ -25,8 +25,17 @@ const PAL_CELL := 11
 
 var step := "name"
 var pname := ""
-var spr: PackedByteArray = PackedByteArray()
+var spr: PackedByteArray = PackedByteArray()      # the canvas being drawn on
 var undo_stack: Array = []
+
+## One drawing per facing. spr is whichever of these is currently being edited.
+const DIRS := ["down", "up", "left", "right"]
+var dir := "down"
+var grids := {}
+## Which facings the player has actually touched. An untouched one is rebuilt
+## from the front drawing whenever it is opened, so changing your mind about
+## your hair does not leave three stale views behind.
+var hand := {}
 
 var preset_idx := 0
 var inst_idx := 0
@@ -60,6 +69,9 @@ func reset() -> void:
 	pname = ""
 	spr = Sprites.build({"outlineOnly": true})
 	undo_stack.clear()
+	dir = "down"
+	grids = {"down": spr}
+	hand = {"down": false, "up": false, "left": false, "right": false}
 	preset_idx = 0
 	inst_idx = 0
 	elem_idx = 0
@@ -96,6 +108,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				KEY_E: colour = wrapi(colour + 1, 0, Sprites.PALETTE.size())
 				KEY_F:
 					push_undo()
+					hand[dir] = true
 					Sprites.flood_fill(spr, cx, cy, colour)
 					if mirror:
 						Sprites.flood_fill(spr, Sprites.W - 1 - cx, cy, colour)
@@ -105,11 +118,17 @@ func _unhandled_input(event: InputEvent) -> void:
 						spr = undo_stack.pop_back()
 				KEY_R:
 					push_undo()
+					hand[dir] = true
 					spr = Sprites.blank()
 				KEY_T:
 					push_undo()
+					hand[dir] = true
 					tmpl = (tmpl + 1) % _templates.size()
 					spr = _templates[tmpl].call()
+				KEY_1: set_dir("down")
+				KEY_2: set_dir("up")
+				KEY_3: set_dir("left")
+				KEY_4: set_dir("right")
 				KEY_ENTER, KEY_KP_ENTER: finish_editor()
 				KEY_ESCAPE: step = "spritechoice"
 
@@ -187,6 +206,16 @@ func _click() -> bool:
 	return fired
 
 
+## A new front drawing means the automatic views are out of date. The ones the
+## player has drawn by hand are left exactly as they are.
+func _front_changed() -> void:
+	grids["down"] = spr
+	dir = "down"
+	for d in DIRS:
+		if d != "down" and not bool(hand.get(d, false)):
+			grids.erase(d)
+
+
 func enter_sprite_mode() -> void:
 	if choice_right:
 		step = "gallery"
@@ -195,6 +224,7 @@ func enter_sprite_mode() -> void:
 		step = "editor"
 		spr = _templates[0].call()
 		undo_stack.clear()
+	_front_changed()
 
 
 func up_gallery(dt: float) -> void:
@@ -202,15 +232,19 @@ func up_gallery(dt: float) -> void:
 	if repeated("move_left", dt):
 		preset_idx = wrapi(preset_idx - 1, 0, n)
 		spr = Sprites.build(Sprites.PRESETS[preset_idx].opts)
+		_front_changed()
 	if repeated("move_right", dt):
 		preset_idx = wrapi(preset_idx + 1, 0, n)
 		spr = Sprites.build(Sprites.PRESETS[preset_idx].opts)
+		_front_changed()
 	if repeated("move_up", dt):
 		preset_idx = wrapi(preset_idx - 4, 0, n)
 		spr = Sprites.build(Sprites.PRESETS[preset_idx].opts)
+		_front_changed()
 	if repeated("move_down", dt):
 		preset_idx = wrapi(preset_idx + 4, 0, n)
 		spr = Sprites.build(Sprites.PRESETS[preset_idx].opts)
+		_front_changed()
 	for i in n:
 		var x := 22 + (i % 4) * 72
 		var y := 56 + int(i / 4) * 74
@@ -218,6 +252,7 @@ func up_gallery(dt: float) -> void:
 			if preset_idx != i:
 				preset_idx = i
 				spr = Sprites.build(Sprites.PRESETS[i].opts)
+				_front_changed()
 			if _click():
 				step = "instrument"
 				return
@@ -230,6 +265,45 @@ func up_gallery(dt: float) -> void:
 		step = "spritechoice"
 
 
+## Move to another facing, saving the one being left and rebuilding the one
+## being opened if it has never been touched.
+func set_dir(d: String) -> void:
+	if d == dir:
+		return
+	grids[dir] = spr
+	dir = d
+	if d != "down" and not bool(hand.get(d, false)):
+		grids[d] = _derive(d)
+	if not grids.has(d):
+		grids[d] = _derive(d)
+	spr = grids[d]
+	undo_stack.clear()
+	Audio.sfx("cursor")
+
+
+func _derive(d: String) -> PackedByteArray:
+	var front: PackedByteArray = grids.get("down", spr)
+	match d:
+		"up":
+			return Sprites.back_view(front)
+		"left":
+			return Sprites.mirrored(Sprites.side_view(front))
+		"right":
+			return Sprites.side_view(front)
+	return front.duplicate()
+
+
+## Every drawing, with the untouched facings filled in from the front one.
+func all_views() -> Dictionary:
+	grids[dir] = spr
+	var out := {}
+	for d in DIRS:
+		if d == "down":
+			continue
+		out[d] = grids[d] if bool(hand.get(d, false)) and grids.has(d) else _derive(d)
+	return out
+
+
 func push_undo() -> void:
 	undo_stack.append(spr.duplicate())
 	if undo_stack.size() > 30:
@@ -238,6 +312,7 @@ func push_undo() -> void:
 
 func paint(v: int) -> void:
 	push_undo()
+	hand[dir] = true
 	Sprites.set_px(spr, cx, cy, v)
 	if mirror:
 		Sprites.set_px(spr, Sprites.W - 1 - cx, cy, v)
@@ -274,9 +349,10 @@ func up_editor(dt: float) -> void:
 
 
 func finish_editor() -> void:
+	grids[dir] = spr
 	var lit := 0
-	for i in spr.size():
-		if spr[i] != 0:
+	for i in PackedByteArray(grids.get("down", spr)):
+		if i != 0:
 			lit += 1
 	if lit < 12:
 		return
@@ -331,22 +407,29 @@ func up_element(dt: float) -> void:
 const MIN_FILL := 40
 
 func do_finish() -> void:
+	var front := _usable_sprite()
+	# if the guard swapped in a preset, the automatic views must come from that
+	if front != grids.get("down", front):
+		grids["down"] = front
 	var p := Game.new_game(
 		pname.strip_edges(),
 		Data.INSTRUMENTS[inst_idx].id,
-		_usable_sprite(),
-		Data.ELEMENTS[elem_idx].id)
+		front,
+		Data.ELEMENTS[elem_idx].id,
+		all_views())
 	finished.emit(p)
 
 
 ## The drawn sprite, or a preset if there is effectively nothing drawn.
 func _usable_sprite() -> PackedByteArray:
+	grids[dir] = spr
+	var front: PackedByteArray = grids.get("down", spr)
 	var filled := 0
-	for b in spr:
+	for b in front:
 		if b != 0 and b != Sprites.OUTLINE:
 			filled += 1
 	if filled >= MIN_FILL:
-		return spr
+		return front
 	return Sprites.build(Sprites.PRESETS[preset_idx % Sprites.PRESETS.size()].opts)
 
 
@@ -480,17 +563,33 @@ func draw_editor() -> void:
 	PixelFont.draw(self, ("colour %d" % colour) if colour != 0 else "eraser",
 		Vector2(PAL_X + 21, PAL_Y + 55), Color("#d0c8e0"))
 
-	UI.window(self, 240, 26, 76, 104, {"alpha": 0.8})
-	PixelFont.draw_centered(self, "preview", 278, 30, Color("#9890b8"))
-	var dirs := ["down", "left", "up", "right"]
-	var d: String = dirs[int(t / 1.1) % 4]
-	draw_sprite_grid(Sprites.back_view(spr) if d == "up" else spr, 254, 42, 2, d == "left")
-	PixelFont.draw_centered(self, d, 278, 118, UI.COL_FAINT)
+	# All four at once, with the one being drawn ringed. A facing that has not
+	# been touched shows the automatic version, so you can see what you are
+	# getting for free before deciding whether to draw it yourself.
+	UI.window(self, 234, 22, 82, 120, {"alpha": 0.8})
+	PixelFont.draw_centered(self, "press 1-4", 275, 26, Color("#9890b8"))
+	PixelFont.draw(self, "drawing: " + dir, Vector2(122, 8), UI.COL_GOLD)
+	grids[dir] = spr
+	for i in DIRS.size():
+		var d: String = DIRS[i]
+		var g: PackedByteArray = grids[d] if (bool(hand.get(d, false)) and grids.has(d)) else _derive(d)
+		var gx := 240 + (i % 2) * 38
+		var gy := 38 + int(i / 2) * 46
+		if d == dir:
+			UI.rect(self, gx - 2, gy - 2, 28, 36, Color("#5a4a98"))
+			UI.rect(self, gx - 1, gy - 1, 26, 34, Color(0.09, 0.07, 0.16, 0.9))
+		draw_sprite_grid(g, gx, gy, 1, false)
+		# the direction alone: "3 left" and "4 right" side by side are wider than
+		# the two cells they sit under, and ran into each other. Which key is
+		# which is on the help line along the bottom.
+		PixelFont.draw_centered(self, d, gx + 12, gy + 34,
+			UI.COL_GOLD if d == dir else UI.COL_FAINT)
 
-	UI.window(self, 8, 186, 214, 48, {"alpha": 0.82})
+	UI.window(self, 8, 184, 214, 56, {"alpha": 0.82})
 	PixelFont.draw(self, "move: arrows   paint: Z   erase: X", Vector2(16, 192), Color("#c8c0dc"))
 	PixelFont.draw(self, "colour: Q/E or click   fill: F", Vector2(16, 204), Color("#c8c0dc"))
 	PixelFont.draw(self, "mirror: M  undo: U  clear: R  template: T", Vector2(16, 216), Color("#c8c0dc"))
+	PixelFont.draw(self, "facing: 1 down  2 up  3 left  4 right", Vector2(16, 228), UI.COL_GOLD)
 	var hot := hit(232, 190, 76, 18)
 	UI.window(self, 232, 190, 76, 18, {"top": Color("#5a4a98")} if hot else {})
 	PixelFont.draw_centered(self, "ENTER  done", 270, 196, Color("#fff4c0") if hot else UI.COL_GOLD)

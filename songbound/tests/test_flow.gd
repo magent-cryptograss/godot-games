@@ -59,6 +59,87 @@ func _check_blank_sprite() -> void:
 	c.queue_free()
 
 
+## Four canvases, one per facing.
+##
+## Before this, "left" and "right" were the front drawing flipped, so three of
+## the four facings were the same picture and a character walking sideways
+## stared out of the screen. The check is that the four are actually four.
+func _check_four_facings() -> void:
+	var c := preload("res://scenes/Creation.tscn").instantiate()
+	add_child(c)
+	c.set_process(false)
+	c.reset()
+	c.spr = Sprites.build(Sprites.PRESETS[3].opts)
+	c._front_changed()
+
+	var views: Dictionary = c.all_views()
+	_expect(views.has("up") and views.has("left") and views.has("right"),
+		"the other three facings are generated (%s)" % str(views.keys()))
+
+	var front: PackedByteArray = c.grids["down"]
+	var seen := {}
+	seen[_fingerprint(front)] = "down"
+	var same: Array = []
+	for d in ["up", "left", "right"]:
+		var fp := _fingerprint(views[d])
+		if seen.has(fp):
+			same.append("%s is identical to %s" % [d, seen[fp]])
+		seen[fp] = d
+	_expect(same.is_empty(), "all four facings are different drawings (%s)" % str(same))
+
+	# the profile should be narrower than the front -- that is what makes it a
+	# profile rather than the same picture with one eye painted out
+	_expect(_width_of(views["right"]) < _width_of(front),
+		"the profile is narrower than the front (%d vs %d)" % [
+			_width_of(views["right"]), _width_of(front)])
+
+	# left is right, the other way round
+	_expect(_fingerprint(views["left"]) == _fingerprint(Sprites.mirrored(views["right"])),
+		"facing left is facing right, mirrored")
+
+	# and a facing the player has drawn on is theirs and stays theirs
+	c.set_dir("left")
+	c.cx = 6
+	c.cy = 6
+	c.colour = 14
+	c.paint(14)
+	var mine: PackedByteArray = c.grids["left"].duplicate()
+	c.set_dir("down")
+	c.set_dir("up")
+	c.set_dir("left")
+	_expect(_fingerprint(c.grids["left"]) == _fingerprint(mine),
+		"a facing you have drawn on is not regenerated")
+
+	# while an untouched one follows the front drawing
+	c.set_dir("down")
+	c.spr = Sprites.build(Sprites.PRESETS[6].opts)
+	c._front_changed()
+	var before := _fingerprint(c.all_views()["up"])
+	c.spr = Sprites.build(Sprites.PRESETS[1].opts)
+	c._front_changed()
+	_expect(_fingerprint(c.all_views()["up"]) != before,
+		"an untouched facing follows the front drawing")
+	c.queue_free()
+
+
+func _fingerprint(g: PackedByteArray) -> String:
+	var h := 0
+	for i in g.size():
+		h = (h * 31 + int(g[i]) * (i + 1)) % 1000000007
+	return str(h)
+
+
+func _width_of(g: PackedByteArray) -> int:
+	var lo := Sprites.W
+	var hi := -1
+	for y in Sprites.H:
+		for x in Sprites.W:
+			if Sprites.get_px(g, x, y) != 0:
+				lo = mini(lo, x)
+				hi = maxi(hi, x)
+	return maxi(0, hi - lo + 1)
+
+
 func _expect(cond: bool, what: String) -> void:
 	if cond:
 		print("  ok   %s" % what)
@@ -86,6 +167,7 @@ func _process(_d: float) -> void:
 			print("== full flow ==")
 			_expect(main.state == main.S.TITLE, "boots to the title")
 			_check_blank_sprite()
+			_check_four_facings()
 		1: _shot("title")
 		2:
 			# make a character the way creation would, then walk into the world

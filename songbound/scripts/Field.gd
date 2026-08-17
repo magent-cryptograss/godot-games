@@ -346,7 +346,14 @@ func _draw() -> void:
 				var n = item.ref
 				var g := Sprites.build(Sprites.NPC_LOOKS.get(n.get("look", "woman"), Sprites.NPC_LOOKS.woman))
 				var d: String = n.get("dir", "down")
-				UI.sprite(self, Sprites.back_view(g) if d == "up" else g,
+				var gd: PackedByteArray = g
+				if d == "up":
+					gd = Sprites.back_view(g)
+				elif d == "left":
+					gd = Sprites.mirrored(Sprites.side_view(g))
+				elif d == "right":
+					gd = Sprites.side_view(g)
+				UI.sprite(self, gd,
 					n.x * TS - cam.x - 4, n.y * TS - cam.y - 16, 1, d == "left")
 			"boss":
 				var b = item.ref
@@ -359,8 +366,8 @@ func _draw() -> void:
 				var px := pos.x * TS + offset.x - cam.x - 4
 				var py := pos.y * TS + offset.y - cam.y - 16
 				UI.shadow(self, px + 12, py + 31, 7, 2)
-				UI.sprite(self, p.back if facing == "up" else p.spr,
-					px, py, 1, facing == "left", walking, frame)
+				# each facing is its own drawing now, so nothing is flipped here
+				UI.sprite(self, p.view(facing), px, py, 1, false, walking, frame)
 
 	if _is_cave():
 		_draw_cave_light(cam)

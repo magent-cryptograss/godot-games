@@ -229,6 +229,105 @@ static func build(o: Dictionary) -> PackedByteArray:
 	return shade(s)
 
 
+## Flip a grid left to right.
+static func mirrored(s: PackedByteArray) -> PackedByteArray:
+	var m := blank()
+	for y in H:
+		for x in W:
+			set_px(m, W - 1 - x, y, get_px(s, x, y))
+	return m
+
+
+## The commonest real colour in a patch, used to read a palette back out of a
+## drawing. Outline and empty do not count.
+static func _common(s: PackedByteArray, x0: int, y0: int, x1: int, y1: int) -> int:
+	var tally := {}
+	for y in range(y0, y1 + 1):
+		for x in range(x0, x1 + 1):
+			var v := get_px(s, x, y)
+			if v != 0 and v != OUTLINE:
+				tally[v] = tally.get(v, 0) + 1
+	var best := 0
+	var got := 0
+	for k in tally:
+		if tally[k] > best:
+			best = tally[k]
+			got = k
+	return got
+
+
+## Draw the figure in profile, facing right, in the colours of the drawing it is
+## given. The field flips it for facing left.
+static func side_view(s: PackedByteArray) -> PackedByteArray:
+	var hair := _common(s, 6, 1, 17, 4)
+	var skin := _common(s, 9, 7, 14, 11)
+	var skin_d := _common(s, 8, 13, 15, 14)
+	var shirt := _common(s, 9, 18, 15, 22)
+	var shirt_d := _common(s, 8, 24, 15, 25)
+	var pants := _common(s, 9, 27, 14, 30)
+	var shoe := _common(s, 8, 31, 15, 31)
+	if skin == 0:
+		skin = _common(s, 6, 3, 17, 14)
+	if skin == 0:
+		return s.duplicate()
+	if skin_d == 0:
+		skin_d = skin
+	if shirt == 0:
+		shirt = _common(s, 6, 16, 17, 25)
+	if shirt_d == 0:
+		shirt_d = shirt
+	if pants == 0:
+		pants = shirt_d
+	if shoe == 0:
+		shoe = pants
+	if hair == 0:
+		hair = skin_d
+
+	var b := blank()
+	var fill := func(x0: int, y0: int, x1: int, y1: int, v: int) -> void:
+		if v == 0:
+			return
+		for y in range(y0, y1 + 1):
+			for x in range(x0, x1 + 1):
+				set_px(b, x, y, v)
+
+	# head, narrower than the front and pushed forward
+	fill.call(8, 3, 16, 14, skin)
+	fill.call(9, 13, 16, 14, skin_d)
+	fill.call(17, 8, 17, 10, skin)          # the nose, which is the whole tell
+	fill.call(8, 2, 15, 6, hair)            # crown and the back of the head
+	fill.call(7, 4, 8, 12, hair)
+	fill.call(9, 3, 12, 8, hair)            # fringe over the near eye
+	fill.call(14, 8, 15, 9, OUTLINE)        # one eye, since the other is behind
+	fill.call(15, 8, 15, 8, 6)
+	fill.call(14, 12, 16, 12, skin_d)       # mouth line
+	fill.call(11, 15, 14, 15, skin_d)       # neck
+
+	# body, half the width of the front view
+	fill.call(10, 16, 15, 25, shirt)
+	fill.call(10, 23, 15, 25, shirt_d)
+	# the near arm, hanging a little forward
+	fill.call(13, 17, 16, 24, shirt)
+	fill.call(13, 23, 16, 24, shirt_d)
+	fill.call(13, 25, 16, 27, skin)
+
+	# legs together, and the feet point the way the figure is facing
+	fill.call(10, 26, 14, 30, pants)
+	fill.call(10, 31, 16, 31, shoe)
+	fill.call(9, 31, 9, 31, shoe)
+
+	# outline, then the same shading pass the front view gets
+	var src := b.duplicate()
+	for y in H:
+		for x in W:
+			if src[y * W + x] != 0:
+				continue
+			if get_px(src, x - 1, y) != 0 or get_px(src, x + 1, y) != 0 \
+					or get_px(src, x, y - 1) != 0 or get_px(src, x, y + 1) != 0:
+				set_px(b, x, y, OUTLINE)
+	return shade(b)
+
+
 ## Derive a back view so the character does not stare at you while walking away:
 ## the face area is filled with whatever colour the hair is.
 static func back_view(s: PackedByteArray) -> PackedByteArray:

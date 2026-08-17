@@ -4,8 +4,12 @@ extends RefCounted
 
 var name: String = "Nameless"
 var inst: String = "guitar"
-var spr: PackedByteArray          # 16x24 palette indices, index 0 transparent
-var back: PackedByteArray         # derived back view
+# Four drawings, one per facing. The player draws as many of them as they feel
+# like and the rest are generated from the front one.
+var spr: PackedByteArray          # facing down; also the portrait everywhere else
+var back: PackedByteArray         # facing up
+var side_l: PackedByteArray       # facing left
+var side_r: PackedByteArray       # facing right
 
 var lv: int = 1
 var xp: int = 0
@@ -37,6 +41,29 @@ func _init(p_name: String = "Nameless", p_inst: String = "guitar", p_spr: Packed
 		upgrades[e.id] = 0
 	hp = max_hp()
 	br = max_br()
+
+
+## The drawing for a facing, falling back to the front one if a view is missing
+## -- an old save from before there were four of them, for instance.
+func view(facing: String) -> PackedByteArray:
+	match facing:
+		"up":
+			return back if back.size() > 0 else spr
+		"left":
+			return side_l if side_l.size() > 0 else spr
+		"right":
+			return side_r if side_r.size() > 0 else spr
+	return spr
+
+
+## Fill in whichever views were not drawn by hand.
+func derive_views() -> void:
+	if back.size() == 0:
+		back = Sprites.back_view(spr)
+	if side_r.size() == 0:
+		side_r = Sprites.side_view(spr)
+	if side_l.size() == 0:
+		side_l = Sprites.mirrored(side_r)
 
 
 func mods() -> Dictionary:
@@ -159,7 +186,8 @@ func grant_xp(amount: int) -> Array[int]:
 
 func to_dict() -> Dictionary:
 	return {
-		"v": 1, "name": name, "inst": inst, "spr": Array(spr),
+		"v": 2, "name": name, "inst": inst, "spr": Array(spr),
+		"back": Array(back), "side_l": Array(side_l), "side_r": Array(side_r),
 		"lv": lv, "xp": xp, "base": base, "grow": grow, "hp": hp, "br": br,
 		"songs": songs, "affinity": affinity, "upgrades": upgrades,
 		"items": items, "gold": gold, "flags": flags,
@@ -170,6 +198,12 @@ static func from_dict(d: Dictionary) -> Player:
 	for v in d.get("spr", []):
 		spr_bytes.append(int(v))
 	var p := Player.new(d.get("name", "Nameless"), d.get("inst", "guitar"), spr_bytes)
+	for key in [["back", "back"], ["side_l", "side_l"], ["side_r", "side_r"]]:
+		var bytes := PackedByteArray()
+		for v in d.get(key[0], []):
+			bytes.append(int(v))
+		p.set(key[1], bytes)
+	p.derive_views()
 	p.lv = int(d.get("lv", 1))
 	p.xp = int(d.get("xp", 0))
 	for k in d.get("base", {}):
