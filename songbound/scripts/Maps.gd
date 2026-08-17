@@ -28,6 +28,20 @@ const BLEND_RANK := {
 	"o": 0, "=": 1, "q": 1, "\"": 2, ".": 3, "f": 3, ",": 4,
 }
 
+## Tiles that stand up off the ground, rather than being ground. These join the
+## depth sort with the characters, so you pass behind the ones nearer the camera
+## than you are, and they throw shadows onto the ground beside them.
+const TALL := {
+	"T": true, "P": true, "r": true, "%": true, "F": true, "^": true,
+	"W": true, "n": true, "R": true, "V": true, "d": true, "C": true,
+	"X": true, "#": true, "g": true, "w": true, "S": true, "p": true,
+	"t": true, "b": true, "c": true,
+}
+
+static func is_tall(ch: String) -> bool:
+	return TALL.get(ch, false)
+
+
 static var _atlas := {}
 
 

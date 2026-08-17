@@ -335,13 +335,38 @@ func _draw() -> void:
 	for n in map.npcs:
 		if n.get("sign", false):
 			continue
-		list.append({"y": n.y, "kind": "npc", "ref": n})
+		list.append({"y": float(n.y), "kind": "npc", "ref": n})
 	if map.boss != null and not Game.player.flags.get("boss_" + map.boss.flag, false):
-		list.append({"y": map.boss.y, "kind": "boss", "ref": map.boss})
-	list.append({"y": pos.y, "kind": "player", "ref": null})
+		list.append({"y": float(map.boss.y), "kind": "boss", "ref": map.boss})
+	list.append({"y": float(pos.y), "kind": "player", "ref": null})
+
+	# Everything that stands up joins the sort. It has already been drawn once
+	# in the tile pass, so the ground under it is right; drawing it again here
+	# is what puts it in front of anybody standing further from the camera.
+	# Only rows at or below the highest character can ever occlude one, so the
+	# rest are not worth queueing.
+	var top_row: int = pos.y
+	for item in list:
+		top_row = mini(top_row, int(item.y))
+	var tex := Maps.textures()
+	var x0 := int(floor(cam.x / TS))
+	var y0 := int(floor(cam.y / TS))
+	for ty in range(maxi(y0, top_row), y0 + int(UI.SCREEN_H / TS) + 2):
+		for tx in range(x0, x0 + int(UI.SCREEN_W / TS) + 2):
+			if Maps.is_tall(map.get_tile(tx, ty)):
+				# half a row back, so a tile on the same row as you is behind you
+				# rather than painted over your face. Something only occludes you
+				# if its base is nearer the camera than yours, not level with it.
+				list.append({"y": float(ty) - 0.5, "kind": "tile", "tx": tx, "ty": ty})
 	list.sort_custom(func(a, b): return a.y < b.y)
 	for item in list:
 		match item.kind:
+			"tile":
+				var ch2 := map.get_tile(item.tx, item.ty)
+				var arr2: Array = tex.get(ch2, [])
+				if not arr2.is_empty():
+					draw_texture_rect(arr2[Maps.variant_of(item.tx, item.ty, arr2.size())],
+						Rect2(item.tx * TS - cam.x, item.ty * TS - cam.y, TS, TS), false)
 			"npc":
 				var n = item.ref
 				var g := Sprites.build(Sprites.NPC_LOOKS.get(n.get("look", "woman"), Sprites.NPC_LOOKS.woman))
@@ -474,15 +499,24 @@ func _tile_edges(tx: int, ty: int, sx: float, sy: float, ch: String) -> void:
 		return
 	if Maps.is_solid(ch):
 		return
-	if Maps.is_solid(map.get_tile(tx, ty - 1)):
-		UI.rect(self, sx, sy, TS, 1, Color(0, 0, 0, 0.38))
-		UI.rect(self, sx, sy + 1, TS, 1, Color(0, 0, 0, 0.24))
-		UI.rect(self, sx, sy + 2, TS, 1, Color(0, 0, 0, 0.12))
-	if Maps.is_solid(map.get_tile(tx - 1, ty)):
-		UI.rect(self, sx, sy, 1, TS, Color(0, 0, 0, 0.28))
-		UI.rect(self, sx + 1, sy, 1, TS, Color(0, 0, 0, 0.14))
+	# A cast shadow rather than a contact line: the light is at the top left of
+	# every tile, so what stands above and to the left of this ground throws
+	# across it. This is most of what fixes an object to the floor instead of
+	# leaving it sitting on top of a pattern.
+	var above: bool = Maps.is_tall(map.get_tile(tx, ty - 1))
+	var left: bool = Maps.is_tall(map.get_tile(tx - 1, ty))
+	if above:
+		for i in 10:
+			UI.rect(self, sx + 3, sy + i, TS - 3, 1, Color(0, 0, 0, 0.34 - i * 0.032))
+	if left:
+		for i in 8:
+			UI.rect(self, sx + i, sy + 3, 1, TS - 3, Color(0, 0, 0, 0.26 - i * 0.03))
+	if above and left:
+		# the corner takes both, and needs the darkest patch or the two shadows
+		# meet in a suspiciously pale square
+		UI.rect(self, sx, sy, 6, 6, Color(0, 0, 0, 0.18))
 	if Maps.is_solid(map.get_tile(tx + 1, ty)):
-		UI.rect(self, sx + TS - 1, sy, 1, TS, Color(0, 0, 0, 0.18))
+		UI.rect(self, sx + TS - 2, sy, 2, TS, Color(0, 0, 0, 0.12))
 
 
 ## Water is baked into the map texture along with its shoreline, so this draws
