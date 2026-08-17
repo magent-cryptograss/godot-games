@@ -165,11 +165,14 @@ func _check_panel_cells() -> void:
 		"every fighting canvas is visible when you are on it (%s)" % str(missing))
 
 	# and nothing is drawn outside the panel it lives in
+	# measured off the panel's own constants: written as literals, this check
+	# went stale the moment the panel changed size and reported a fault that
+	# was not there
 	var outside: Array = []
 	for cell in c._panel_cells():
-		if cell.x < c.SIDE_X or cell.x + Sprites.W > c.SIDE_X + 120:
+		if cell.x < c.SIDE_X or cell.x + Sprites.W > c.SIDE_X + c.PANEL_W:
 			outside.append("%s x" % cell.key)
-		if cell.y < 22 or cell.y + Sprites.H > 22 + 216:
+		if cell.y < 22 or cell.y + Sprites.H > 22 + c.PANEL_H:
 			outside.append("%s y" % cell.key)
 	_expect(outside.is_empty(), "every cell sits inside the panel (%s)" % str(outside))
 	c.queue_free()

@@ -8,8 +8,8 @@ extends RefCounted
 ## to carry any detail. Anything positioned against the right or the bottom must
 ## be written against these rather than as a number, or it lands off the screen
 ## the next time this changes.
-const SCREEN_W := 640
-const SCREEN_H := 480
+const SCREEN_W := 800
+const SCREEN_H := 600
 
 const COL_TEXT := Color("#f4f0e8")
 const COL_DIM := Color("#b0a8c8")
@@ -114,15 +114,15 @@ enum { FACE_FRONT, FACE_RIGHT, FACE_LEFT }
 
 ## The middle of the figure. The legs are drawn either side of it, so this is
 ## where they have to be split for them to scissor rather than slide.
-const MID := 16
+const MID := 24
 
 ## How far a leg swings, in pixels. One pixel on a 24-wide figure is a shuffle;
 ## two is a stride you can see at a glance.
-const STRIDE := 3
+const STRIDE := 4
 
 ## Rows. Below TORSO_Y is arms and body, below LEG_Y is legs.
-const TORSO_Y := 26
-const LEG_Y := 38
+const TORSO_Y := 39
+const LEG_Y := 57
 
 
 ## Draw a palette-index sprite, animating a walk out of one still drawing.

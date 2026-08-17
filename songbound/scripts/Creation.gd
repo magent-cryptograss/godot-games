@@ -19,11 +19,16 @@ const ED_GY := 32
 # 6px cells on a 32x48 grid: 192 by 288, which fills the left of the screen and
 # leaves the right for the palette, the four facings and the key list
 const ED_CELL := 6
-const PAL_X := 212
+const PAL_X := 320
 const PAL_Y := 42
-const PAL_CELL := 11
-## Where the right-hand column of panels starts
-const SIDE_X := 352.0
+const PAL_CELL := 13
+## Where the right-hand column of panels starts, and how big the preview panel
+## is. Named rather than written out at each use, because the test that checks
+## the cells fit inside it had the size as a literal and went stale the moment
+## the panel grew.
+const SIDE_X := 630.0
+const PANEL_W := 162.0
+const PANEL_H := 300.0
 
 var step := "name"
 var pname := ""
@@ -343,8 +348,8 @@ func _panel_cells() -> Array:
 			break
 		out.append({
 			"key": str(slots[idx]),
-			"x": SIDE_X + 10.0 + (i % 2) * 54.0,
-			"y": 38.0 + int(i / 2) * 62.0,
+			"x": SIDE_X + 12.0 + (i % 2) * 78.0,
+			"y": 40.0 + int(i / 2) * 92.0,
 		})
 	return out
 
@@ -563,17 +568,17 @@ func up_editor(dt: float) -> void:
 		var y := PAL_Y + int(i / 8) * PAL_CELL
 		if hit(x, y, PAL_CELL, PAL_CELL) and _click():
 			colour = i
-	if hit(8, 324, 92, 24) and _click():
+	if hit(8, 476, 92, 24) and _click():
 		clip = spr.duplicate()
 		Audio.sfx("confirm")
 		return
-	if hit(108, 324, 92, 24) and _click() and clip.size() == spr.size():
+	if hit(108, 476, 92, 24) and _click() and clip.size() == spr.size():
 		push_undo()
 		hand[cur_key()] = true
 		spr = clip.duplicate()
 		Audio.sfx("confirm")
 		return
-	if hit(PAL_X, 330, 130, 24) and _click():
+	if hit(PAL_X, 512, 140, 26) and _click():
 		finish_editor()
 
 
@@ -798,9 +803,9 @@ func draw_editor() -> void:
 	# All four at once, with the one being drawn ringed. A facing that has not
 	# been touched shows the automatic version, so you can see what you are
 	# getting for free before deciding whether to draw it yourself.
-	UI.window(self, SIDE_X, 22, 120, 216, {"alpha": 0.8})
+	UI.window(self, SIDE_X, 22, PANEL_W, PANEL_H, {"alpha": 0.8})
 	PixelFont.draw_centered(self, "fighting" if page == "battle" else dir,
-		SIDE_X + 60, 26, Color("#9890b8"))
+		SIDE_X + 81, 26, Color("#9890b8"))
 	PixelFont.draw(self, "drawing: " + _slot_label(cur_key()), Vector2(168, 8), UI.COL_GOLD)
 	grids[cur_key()] = spr
 	# Four canvases at a time, with the one being drawn ringed. On the walking
@@ -830,40 +835,40 @@ func draw_editor() -> void:
 			if key != "battle" and bool(hand.get(key, false)) and grids.has(key):
 				drawn.append(key)
 		PixelFont.draw_centered(self, "swinging" if drawn.size() > 0 else "no swing yet",
-			SIDE_X + 60, 166, Color("#9890b8"))
+			SIDE_X + 81, 232, Color("#9890b8"))
 		var show: String = "battle"
 		if drawn.size() > 0:
 			show = str(drawn[int(t * 8.0) % drawn.size()])
-		draw_sprite_grid(_key_grid(show), SIDE_X + 44, 178, 1, false)
+		draw_sprite_grid(_key_grid(show), SIDE_X + 57, 244, 1, false)
 	else:
 		var beat := int(t * 7.0) % FRAMES
-		PixelFont.draw_centered(self, "walking", SIDE_X + 60, 166, Color("#9890b8"))
-		draw_sprite_grid(_slot_grid(dir, beat), SIDE_X + 44, 178, 1, false)
+		PixelFont.draw_centered(self, "walking", SIDE_X + 81, 232, Color("#9890b8"))
+		draw_sprite_grid(_slot_grid(dir, beat), SIDE_X + 57, 244, 1, false)
 
-	UI.window(self, PAL_X, 230, UI.SCREEN_W - PAL_X - 8, 94, {"alpha": 0.82})
-	PixelFont.draw(self, "move: arrows   paint: Z   erase: X", Vector2(PAL_X + 8, 236), Color("#c8c0dc"))
-	PixelFont.draw(self, "colour: Q/E or click   fill: F", Vector2(PAL_X + 8, 250), Color("#c8c0dc"))
-	PixelFont.draw(self, "mirror: M  undo: U  clear: R  template: T", Vector2(PAL_X + 8, 264), Color("#c8c0dc"))
-	PixelFont.draw(self, "facing: 1 down  2 up  3 left  4 right", Vector2(PAL_X + 8, 278), UI.COL_GOLD)
-	PixelFont.draw(self, "frame:  5 stand  6/7/8 walking", Vector2(PAL_X + 8, 292), UI.COL_GOLD)
+	UI.window(self, PAL_X, 400, 290, 100, {"alpha": 0.82})
+	PixelFont.draw(self, "move: arrows   paint: Z   erase: X", Vector2(PAL_X + 8, 406), Color("#c8c0dc"))
+	PixelFont.draw(self, "colour: Q/E or click   fill: F", Vector2(PAL_X + 8, 420), Color("#c8c0dc"))
+	PixelFont.draw(self, "mirror: M  undo: U  clear: R  template: T", Vector2(PAL_X + 8, 434), Color("#c8c0dc"))
+	PixelFont.draw(self, "facing: 1 down  2 up  3 left  4 right", Vector2(PAL_X + 8, 448), UI.COL_GOLD)
+	PixelFont.draw(self, "frame:  5 stand  6/7/8 walking", Vector2(PAL_X + 8, 462), UI.COL_GOLD)
 	PixelFont.draw(self, "B fighting page   , . step   C/V copy paste",
-		Vector2(PAL_X + 8, 306), UI.COL_GREEN)
+		Vector2(PAL_X + 8, 476), UI.COL_GREEN)
 	# COPY and PASTE under the canvas. Most frames of an animation are the last
 	# frame with one arm moved, and redrawing a whole figure to move an arm is
 	# how somebody stops bothering.
-	var copy_hot := hit(8, 324, 92, 24)
-	UI.window(self, 8, 324, 92, 24, {"top": Color("#5a4a98")} if copy_hot else {})
-	PixelFont.draw_centered(self, "COPY  C", 54, 332,
+	var copy_hot := hit(8, 476, 92, 24)
+	UI.window(self, 8, 476, 92, 24, {"top": Color("#5a4a98")} if copy_hot else {})
+	PixelFont.draw_centered(self, "COPY  C", 54, 484,
 		Color("#fff4c0") if copy_hot else UI.COL_TEXT)
-	var paste_hot := hit(108, 324, 92, 24)
+	var paste_hot := hit(108, 476, 92, 24)
 	var can_paste: bool = clip.size() == spr.size()
-	UI.window(self, 108, 324, 92, 24, {"top": Color("#5a4a98")} if paste_hot and can_paste else {})
-	PixelFont.draw_centered(self, "PASTE  V", 154, 332,
+	UI.window(self, 108, 476, 92, 24, {"top": Color("#5a4a98")} if paste_hot and can_paste else {})
+	PixelFont.draw_centered(self, "PASTE  V", 154, 484,
 		(Color("#fff4c0") if paste_hot else UI.COL_TEXT) if can_paste else Color("#6a6480"))
 
-	var hot := hit(PAL_X, 330, 130, 24)
-	UI.window(self, PAL_X, 330, 130, 24, {"top": Color("#5a4a98")} if hot else {})
-	PixelFont.draw_centered(self, "ENTER  done", PAL_X + 65, 338,
+	var hot := hit(PAL_X, 512, 140, 26)
+	UI.window(self, PAL_X, 512, 140, 26, {"top": Color("#5a4a98")} if hot else {})
+	PixelFont.draw_centered(self, "ENTER  done", PAL_X + 70, 521,
 		Color("#fff4c0") if hot else UI.COL_GOLD)
 
 
