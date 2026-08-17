@@ -111,6 +111,10 @@ enum { FACE_FRONT, FACE_RIGHT, FACE_LEFT }
 ## where they have to be split for them to scissor rather than slide.
 const MID := 12
 
+## How far a leg swings, in pixels. One pixel on a 24-wide figure is a shuffle;
+## two is a stride you can see at a glance.
+const STRIDE := 2
+
 ## Rows. Below TORSO_Y is arms and body, below LEG_Y is legs.
 const TORSO_Y := 17
 const LEG_Y := 26
@@ -126,7 +130,7 @@ static func sprite(ci: CanvasItem, g: PackedByteArray, x: float, y: float, sc: i
 	var bob := 1 if walking and (frame % 4 == 1 or frame % 4 == 3) else 0
 	var leg := 0
 	if walking:
-		leg = 1 if frame % 4 == 1 else (-1 if frame % 4 == 3 else 0)
+		leg = STRIDE if frame % 4 == 1 else (-STRIDE if frame % 4 == 3 else 0)
 	# a profile drawn facing left has its front where a right-facing one has its
 	# back, so every comparison below is reflected rather than assumed
 
