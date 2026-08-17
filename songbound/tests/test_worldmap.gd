@@ -41,6 +41,7 @@ func _ready() -> void:
 	for id in Places.sites:
 		var site: Dictionary = Places.sites[id]
 		print("    %-9s %-20s %s" % [site.kind, site.name, site.gate])
+	print("SHOTS SAVED")
 	get_tree().quit()
 
 

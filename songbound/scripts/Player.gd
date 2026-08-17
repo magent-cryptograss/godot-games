@@ -40,6 +40,12 @@ var items := {"tonic": 3, "rosin": 2}
 var gold: int = 60
 var flags := {}
 
+## What has been found out about each kind of creature: species id -> element ->
+## true for weak, false for resisted. Kept here rather than on the creature in
+## front of you, because the knowledge is about the species and should outlast
+## the fight.
+var known := {}
+
 var rng := RandomNumberGenerator.new()
 
 
@@ -114,6 +120,20 @@ func _frames_to_dict() -> Dictionary:
 	for key in frames:
 		out[key] = Array(frames[key])
 	return out
+
+
+## Record a matchup. Called when a song lands and does something unusual.
+func learn(species: String, elem: String, weak: bool) -> void:
+	if species == "":
+		return
+	if not known.has(species):
+		known[species] = {}
+	known[species][elem] = weak
+
+
+## What is known about a kind of creature, which may be nothing.
+func known_of(species: String) -> Dictionary:
+	return known.get(species, {})
 
 
 func mods() -> Dictionary:
@@ -239,6 +259,7 @@ func to_dict() -> Dictionary:
 		"v": 2, "name": name, "inst": inst, "spr": Array(spr),
 		"back": Array(back), "side_l": Array(side_l), "side_r": Array(side_r),
 		"frames": _frames_to_dict(),
+		"known": known.duplicate(true),
 		"lv": lv, "xp": xp, "base": base, "grow": grow, "hp": hp, "br": br,
 		"songs": songs, "affinity": affinity, "upgrades": upgrades,
 		"items": items, "gold": gold, "flags": flags,
@@ -265,6 +286,11 @@ static func from_dict(d: Dictionary) -> Player:
 	for key in ["back", "side_l", "side_r"]:
 		if p.get(key).size() != Sprites.W * Sprites.H:
 			p.set(key, PackedByteArray())
+	for species in d.get("known", {}):
+		var row: Dictionary = {}
+		for elem in d.known[species]:
+			row[elem] = bool(d.known[species][elem])
+		p.known[species] = row
 	for key in d.get("frames", {}):
 		var fb := PackedByteArray()
 		for val in d.frames[key]:

@@ -64,6 +64,7 @@ func _process(_d: float) -> void:
 	idx += 1
 	if idx >= STEPS.size():
 		print("CREATION: done, %s" % ProjectSettings.globalize_path(OUT_DIR))
+		print("SHOTS SAVED")
 		get_tree().quit(0)
 		return
 	_setup(idx)

@@ -116,8 +116,6 @@ func _layout() -> void:
 			e["x"] = w * 0.41 + i * 74
 			e["y"] = 66.0 + (i % 2) * 44
 		e["ax"] = 0.0
-		# what the player has found out about this one, elem -> true if weak
-		e["known"] = {}
 		e["flash"] = 0.0
 		e["shk"] = 0.0
 		e["fade"] = 1.0
@@ -355,7 +353,7 @@ func do_song(sd: Dictionary, idx: int) -> void:
 					continue
 				var eff := Data.elem_effect(str(sd.elem), str(e.get("elem", "")))
 				if eff != 1.0:
-					e.known[sd.elem] = eff > 1.0
+					Game.player.learn(str(e.get("id", "")), str(sd.elem), eff > 1.0)
 				for i in hits:
 					var d := Data.song_damage(p_mus(), sd.pow, e_def(e), aff, rng)
 					d = maxi(1, roundi(float(d) * eff * boost))
@@ -858,7 +856,7 @@ func _draw_enemies() -> void:
 ## The row of marks under a creature: one square per element the player has
 ## tried and got a reaction from, chevron up for weak and down for resisted.
 func _draw_known(e: Dictionary, ex: float, ey: float) -> void:
-	var known: Dictionary = e.get("known", {})
+	var known: Dictionary = Game.player.known_of(str(e.get("id", "")))
 	if known.is_empty():
 		return
 	var n := known.size()

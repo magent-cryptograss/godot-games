@@ -36,4 +36,5 @@ func _process(_d: float) -> void:
 		return
 	img.save_png(OUT_DIR + "overworld-town.png")
 	print("SHOT: %s" % ProjectSettings.globalize_path(OUT_DIR + "overworld-town.png"))
+	print("SHOTS SAVED")
 	get_tree().quit(0)

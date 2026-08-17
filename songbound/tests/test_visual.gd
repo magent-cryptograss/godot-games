@@ -85,4 +85,5 @@ func _process(_d: float) -> void:
 			img.save_png(OUT)
 			print("VISUAL: %dx%d, %d lit samples -> %s" % [
 				img.get_width(), img.get_height(), lit, ProjectSettings.globalize_path(OUT)])
+	print("SHOTS SAVED")
 	get_tree().quit()
