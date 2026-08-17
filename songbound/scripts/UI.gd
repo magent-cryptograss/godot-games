@@ -3,8 +3,13 @@ extends RefCounted
 ## Shared chrome: translucent bevelled windows, bars, the pointing cursor.
 ## All drawn with rects so it stays crisp at the 320x240 base resolution.
 
-const SCREEN_W := 320
-const SCREEN_H := 240
+## The picture is 480x360 and the window shows it doubled. It was 320x240, which
+## put every pixel on screen as a three-by-three block -- too coarse for a tile
+## to carry any detail. Anything positioned against the right or the bottom must
+## be written against these rather than as a number, or it lands off the screen
+## the next time this changes.
+const SCREEN_W := 480
+const SCREEN_H := 360
 
 const COL_TEXT := Color("#f4f0e8")
 const COL_DIM := Color("#b0a8c8")

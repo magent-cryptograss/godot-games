@@ -144,24 +144,37 @@ static func build(o: Dictionary) -> PackedByteArray:
 
 	# ---- head: rows 3-15, a good third of the figure ----
 	fill.call(7, 3, 16, 14, skin)
-	fill.call(6, 5, 6, 12, skin)          # cheeks
-	fill.call(17, 5, 17, 12, skin)
-	fill.call(7, 13, 16, 14, skin_d)      # under the jaw
-	fill.call(8, 15, 15, 15, skin_d)      # neck
+	fill.call(6, 5, 6, 11, skin)          # cheeks
+	fill.call(17, 5, 17, 11, skin)
+	# the jaw narrows toward the chin; a head as wide at the chin as at the
+	# temples reads as a box with a face drawn on it
+	fill.call(7, 13, 7, 14, 0)
+	fill.call(16, 13, 16, 14, 0)
+	fill.call(8, 14, 8, 14, 0)
+	fill.call(15, 14, 15, 14, 0)
+	fill.call(8, 13, 15, 14, skin_d)      # under the jaw
+	fill.call(9, 15, 14, 15, skin_d)      # neck
+	fill.call(9, 15, 14, 15, skin_d)
 
 	if not outline_only:
-		# eyes: white, pupil, and a lash line above -- the whole reason for 24x32
+		# Eyes big enough to have parts: a white, a dark iris, a lash line over
+		# the top and one pixel of catchlight. The catchlight is what stops the
+		# face looking painted on.
+		# Two across, not three: three reads as goggles at this size. White,
+		# iris, and one pixel of catchlight in the corner, which is the whole
+		# difference between a face and a face painted on.
 		fill.call(9, 8, 10, 9, 6)
 		fill.call(13, 8, 14, 9, 6)
-		fill.call(9, 8, 9, 8, OUT)
-		fill.call(13, 8, 13, 8, OUT)
-		fill.call(9, 9, 10, 9, 22)
+		fill.call(9, 9, 10, 9, 22)         # iris sits low in the white
 		fill.call(13, 9, 14, 9, 22)
-		fill.call(9, 7, 10, 7, OUT)
+		fill.call(9, 8, 9, 8, 6)           # catchlight
+		fill.call(13, 8, 13, 8, 6)
+		fill.call(9, 7, 10, 7, OUT)        # lashes
 		fill.call(13, 7, 14, 7, OUT)
 		fill.call(11, 10, 12, 11, skin_d)  # nose
-		fill.call(10, 12, 13, 12, skin_d)  # mouth line
-		fill.call(11, 12, 12, 12, 13)
+		fill.call(11, 11, 11, 11, 0)
+		fill.call(10, 13, 13, 13, skin_d)  # mouth
+		fill.call(11, 13, 12, 13, 13)
 
 	# ---- hair ----
 	if style != "bald":
@@ -169,6 +182,16 @@ static func build(o: Dictionary) -> PackedByteArray:
 		fill.call(7, 0, 16, 0, hair)
 		fill.call(5, 3, 5, 9, hair)        # sideburns down each side
 		fill.call(18, 3, 18, 9, hair)
+		if not outline_only:
+			# a touch of shadow under the fringe, at the temples only -- across
+			# the whole brow it just makes the face murky
+			fill.call(7, 5, 8, 5, DARKER.get(skin, skin_d))
+			fill.call(15, 5, 16, 5, DARKER.get(skin, skin_d))
+			# and catches the light along its upper left
+			var hair_lit: int = LIGHTER.get(hair, hair)
+			fill.call(7, 1, 12, 1, hair_lit)
+			fill.call(6, 2, 9, 2, hair_lit)
+			fill.call(5, 3, 5, 5, hair_lit)
 		if style == "fringe":
 			fill.call(7, 5, 16, 6, hair)
 			fill.call(8, 7, 11, 7, hair)
@@ -187,8 +210,16 @@ static func build(o: Dictionary) -> PackedByteArray:
 
 	# ---- torso: rows 16-25 ----
 	fill.call(7, 16, 16, 25, shirt)
+	fill.call(7, 16, 7, 16, 0)             # shoulders slope rather than square
+	fill.call(16, 16, 16, 16, 0)
+	fill.call(8, 16, 15, 16, LIGHTER.get(shirt, shirt))   # light on the shoulders
 	fill.call(7, 23, 16, 25, shirt_d)      # hem in shadow
 	fill.call(11, 16, 12, 25, shirt_d)     # a fold down the middle
+	if not outline_only:
+		# where the sleeve meets the body, and nothing across the chest -- two
+		# dark bars down the front read as a pair of braces
+		fill.call(8, 17, 8, 20, shirt_d)
+		fill.call(15, 17, 15, 20, shirt_d)
 	if o.has("vest"):
 		fill.call(8, 16, 9, 24, o.get("vest"))
 		fill.call(14, 16, 15, 24, o.get("vest"))
@@ -204,11 +235,17 @@ static func build(o: Dictionary) -> PackedByteArray:
 	fill.call(17, 25, 19, 27, skin)
 
 	# ---- legs ----
-	fill.call(8, 26, 11, 30, pants)
-	fill.call(12, 26, 15, 30, pants)
-	fill.call(11, 26, 12, 30, pants)
-	fill.call(8, 31, 11, 31, shoe)
-	fill.call(12, 31, 15, 31, shoe)
+	fill.call(8, 26, 15, 30, pants)
+	if not outline_only:
+		fill.call(11, 27, 12, 30, 0)       # daylight between the legs
+		fill.call(10, 27, 10, 30, DARKER.get(pants, pants))
+		fill.call(13, 27, 13, 30, DARKER.get(pants, pants))
+	fill.call(8, 30, 15, 30, DARKER.get(pants, pants))
+	fill.call(8, 31, 10, 31, shoe)
+	fill.call(13, 31, 15, 31, shoe)
+	if not outline_only:
+		fill.call(8, 31, 10, 31, LIGHTER.get(shoe, shoe))
+		fill.call(13, 31, 15, 31, LIGHTER.get(shoe, shoe))
 	fill.call(7, 31, 7, 31, shoe)
 	fill.call(16, 31, 16, 31, shoe)
 

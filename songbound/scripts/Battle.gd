@@ -81,19 +81,30 @@ func begin(region_id: String, boss: String = "", flag: String = "") -> void:
 	Audio.sfx("encounter")
 
 
+## The horizon, and the panel that carries the song and item lists. Written once
+## here and referred to everywhere else, so the screen can be resized without
+## hunting through eighty numbers again.
+const HORIZON := 132
+const LIST_X := 150.0
+const LIST_Y := 214.0
+
+
 func _layout() -> void:
 	var n := enemies.size()
 	for i in n:
 		var e: Dictionary = enemies[i]
+		# spread across the right of the field, staggered in depth so a row of
+		# three does not read as a wall
+		var w := float(UI.SCREEN_W)
 		if n == 1:
-			e["x"] = 172.0
-			e["y"] = 58.0
+			e["x"] = w * 0.56
+			e["y"] = 88.0
 		elif n == 2:
-			e["x"] = 150.0 + i * 64
-			e["y"] = 52.0 + i * 22
+			e["x"] = w * 0.47 + i * 92
+			e["y"] = 78.0 + i * 34
 		else:
-			e["x"] = 132.0 + i * 52
-			e["y"] = 44.0 + (i % 2) * 30
+			e["x"] = w * 0.41 + i * 74
+			e["y"] = 66.0 + (i % 2) * 44
 		e["ax"] = 0.0
 		e["flash"] = 0.0
 		e["shk"] = 0.0
@@ -726,7 +737,7 @@ func _draw() -> void:
 
 func _draw_bg() -> void:
 	var pal: Array = BG_PALETTES.get(bg, BG_PALETTES.meadow)
-	UI.vgrad(self, 0, 0, UI.SCREEN_W, 90, Color(pal[1]), Color(pal[0]), 12)
+	UI.vgrad(self, 0, 0, UI.SCREEN_W, HORIZON, Color(pal[1]), Color(pal[0]), 12)
 	var drift := t * 11.0
 	# two ridges at different speeds: the parallax is most of what reads as depth
 	for x in UI.SCREEN_W:
@@ -735,7 +746,8 @@ func _draw_bg() -> void:
 	for x in UI.SCREEN_W:
 		var hgt := 16.0 + sin((x + drift * 0.6) / 26.0) * 7.0 + sin((x + drift * 0.6) / 11.0) * 3.0
 		UI.rect(self, x, 96 - hgt, 1, hgt + 6, Color(pal[3]))
-	UI.vgrad(self, 0, 96, UI.SCREEN_W, UI.SCREEN_H - 96, Color(pal[2]), Color(pal[4]), 10)
+	UI.vgrad(self, 0, HORIZON + 6, UI.SCREEN_W, UI.SCREEN_H - HORIZON - 6,
+		Color(pal[2]), Color(pal[4]), 10)
 	for i in 90:
 		var gx := Maps.hash2(i, 7) * UI.SCREEN_W
 		var gy := 100 + Maps.hash2(i, 9) * (UI.SCREEN_H - 104)
@@ -753,7 +765,7 @@ func _draw_enemies() -> void:
 	for e in enemies:
 		if e.dead and e.fade <= 0.0:
 			continue
-		var ex: float = e.x + e.ax + ((rng.randf() * 2.0 - 1.0) * 3.0 if e.shk > 0.0 else 0.0) + intro * 120.0
+		var ex: float = e.x + e.ax + ((rng.randf() * 2.0 - 1.0) * 3.0 if e.shk > 0.0 else 0.0) + intro * UI.SCREEN_W * 0.4
 		var ey: float = e.y
 		if e.dead:
 			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
@@ -788,8 +800,8 @@ func _draw_player() -> void:
 	var pxo := (rng.randf() * 2.0 - 1.0) * 2.0 if p_shake > 0.0 else 0.0
 	# clear of the command window at y162 -- a 16x24 sprite at 2x is 48 tall,
 	# so anything below about y110 ends up behind the menu
-	var psx := 44.0 + pxo
-	var psy := 92.0 + sin(t * 2.4) * 1.0
+	var psx := UI.SCREEN_W * 0.14 + pxo
+	var psy := UI.SCREEN_H * 0.42 + sin(t * 2.4) * 1.0
 	UI.shadow(self, psx + 24, psy + 64, 18, 4)
 	UI.sprite(self, Game.player.spr, psx, psy, 2, false, true, int(t * 5.0))
 	if p_flash > 0.0:
@@ -824,25 +836,29 @@ func _draw_song_fx() -> void:
 
 func _draw_ui() -> void:
 	var p := Game.player
-	UI.window(self, 4, 190, 86, 46)
-	PixelFont.draw(self, p.name, Vector2(10, 195))
-	PixelFont.draw_right(self, "Lv%d" % p.lv, 84, 195, UI.COL_GOLD)
-	PixelFont.draw(self, "HP", Vector2(10, 208), Color("#9890b8"))
-	UI.bar(self, 26, 209, 40, 5, float(p.hp) / float(p.max_hp()))
-	PixelFont.draw_right(self, str(p.hp), 84, 206, Color("#d8d0e8"))
-	PixelFont.draw(self, "BR", Vector2(10, 222), Color("#9890b8"))
-	UI.bar(self, 26, 223, 40, 5, float(p.br) / float(p.max_br()), Color("#78b8f0"), Color("#2a5a9c"))
-	PixelFont.draw_right(self, str(p.br), 84, 220, Color("#d8d0e8"))
-	var sxp := 10.0
+	var bx := 8.0
+	var by := float(UI.SCREEN_H) - 76.0
+	UI.window(self, bx, by, 132, 68)
+	PixelFont.draw(self, p.name, Vector2(bx + 8, by + 6))
+	PixelFont.draw_right(self, "Lv%d" % p.lv, bx + 124, by + 6, UI.COL_GOLD)
+	PixelFont.draw(self, "HP", Vector2(bx + 8, by + 24), Color("#9890b8"))
+	UI.bar(self, bx + 28, by + 25, 60, 6, float(p.hp) / float(p.max_hp()))
+	PixelFont.draw_right(self, str(p.hp), bx + 124, by + 22, Color("#d8d0e8"))
+	PixelFont.draw(self, "BR", Vector2(bx + 8, by + 42), Color("#9890b8"))
+	UI.bar(self, bx + 28, by + 43, 60, 6, float(p.br) / float(p.max_br()),
+		Color("#78b8f0"), Color("#2a5a9c"))
+	PixelFont.draw_right(self, str(p.br), bx + 124, by + 40, Color("#d8d0e8"))
+	var sxp := bx + 8
 	for k in p_status:
-		UI.rect(self, sxp, 232, 4, 4, Color(Data.STATUS[k].col))
-		sxp += 5
+		UI.rect(self, sxp, by + 58, 5, 5, Color(Data.STATUS[k].col))
+		sxp += 7
 
 	if phase == "command" or phase == "target":
-		UI.window(self, 6, 162, 82, 26)
+		var cy := by - 46.0
+		UI.window(self, bx, cy, 132, 40)
 		for i in 4:
-			var x := 12 + (i % 2) * 40
-			var y := 168 + int(i / 2) * 12
+			var x := bx + 6 + (i % 2) * 62
+			var y := cy + 8 + int(i / 2) * 16
 			var is_sel := i == cmd and phase == "command"
 			PixelFont.draw(self, CMDS[i], Vector2(x + 6, y), UI.COL_GOLD if is_sel else Color("#c0b8d8"))
 			if is_sel:
@@ -850,51 +866,57 @@ func _draw_ui() -> void:
 
 	if phase == "songmenu":
 		var songs := Game.player.song_book()
-		UI.window(self, 88, 142, 226, 94)
-		PixelFont.draw(self, "Songs", Vector2(96, 146), Color("#9890b8"))
-		PixelFont.draw_right(self, "Breath %d" % p.br, 306, 146, UI.COL_BLUE)
+		UI.window(self, LIST_X, LIST_Y, UI.SCREEN_W - LIST_X - 8, 132)
+		PixelFont.draw(self, "Songs", Vector2(LIST_X + 8, LIST_Y + 6), Color("#9890b8"))
+		PixelFont.draw_right(self, "Breath %d" % p.br, UI.SCREEN_W - 16, LIST_Y + 6, UI.COL_BLUE)
 		for i in mini(6, songs.size()):
 			var idx := scroll + i
 			if idx >= songs.size():
 				break
 			var s: Dictionary = songs[idx]
 			var el: Dictionary = Data.element(s.elem)
-			var y := 158 + i * 13
+			var y := LIST_Y + 22 + i * 16
 			var is_sel := idx == sel
 			if is_sel:
-				UI.cursor(self, 94, y - 1, t)
-			UI.rect(self, 104, y + 1, 5, 5, Color(el.col))
+				UI.cursor(self, LIST_X + 6, y - 1, t)
+			UI.rect(self, LIST_X + 16, y + 1, 5, 5, Color(el.col))
 			var afford: bool = p.br >= s.cost
 			var label: String = s.name + (" +%d" % s.upgraded if s.upgraded > 0 else "")
-			PixelFont.draw(self, label, Vector2(113, y),
+			PixelFont.draw(self, label, Vector2(LIST_X + 26, y),
 				UI.COL_GOLD if is_sel else (Color("#d8d0e8") if afford else Color("#6a6480")))
-			PixelFont.draw_right(self, str(s.cost), 306, y, UI.COL_BLUE if afford else Color("#6a6480"))
+			PixelFont.draw_right(self, str(s.cost), UI.SCREEN_W - 16, y,
+				UI.COL_BLUE if afford else Color("#6a6480"))
 		if songs.size() > 6:
-			PixelFont.draw_right(self, "%d/%d" % [sel + 1, songs.size()], 306, 228, Color("#6a6480"))
+			PixelFont.draw_right(self, "%d/%d" % [sel + 1, songs.size()],
+				UI.SCREEN_W - 16, LIST_Y + 118, Color("#6a6480"))
 		if sel < songs.size():
-			PixelFont.draw(self, Data.describe_song(songs[sel]), Vector2(96, 226), Color("#9890b8"))
+			PixelFont.draw(self, Data.describe_song(songs[sel]),
+				Vector2(LIST_X + 8, LIST_Y + 116), Color("#9890b8"))
 
 	if phase == "itemmenu":
 		var ids := Game.player.items.keys()
-		UI.window(self, 88, 142, 226, 94)
-		PixelFont.draw(self, "Items", Vector2(96, 146), Color("#9890b8"))
+		UI.window(self, LIST_X, LIST_Y, UI.SCREEN_W - LIST_X - 8, 132)
+		PixelFont.draw(self, "Items", Vector2(LIST_X + 8, LIST_Y + 6), Color("#9890b8"))
 		for i in mini(6, ids.size()):
-			var y := 158 + i * 13
+			var y := LIST_Y + 22 + i * 16
 			var is_sel := i == sel
 			if is_sel:
-				UI.cursor(self, 94, y - 1, t)
-			PixelFont.draw(self, Data.item_name(ids[i]), Vector2(106, y),
+				UI.cursor(self, LIST_X + 6, y - 1, t)
+			PixelFont.draw(self, Data.item_name(ids[i]), Vector2(LIST_X + 20, y),
 				UI.COL_GOLD if is_sel else Color("#d8d0e8"))
-			PixelFont.draw_right(self, "x%d" % p.items[ids[i]], 306, y, Color("#c0b8d8"))
+			PixelFont.draw_right(self, "x%d" % p.items[ids[i]], UI.SCREEN_W - 16, y,
+				Color("#c0b8d8"))
 		if sel < ids.size():
-			PixelFont.draw(self, Data.ITEMS[ids[sel]].desc, Vector2(96, 226), Color("#9890b8"))
+			PixelFont.draw(self, Data.ITEMS[ids[sel]].desc,
+				Vector2(LIST_X + 8, LIST_Y + 116), Color("#9890b8"))
 
 	if msg != "" and phase != "songmenu" and phase != "itemmenu":
-		UI.window(self, 94, 200, 220, 22, {"alpha": 0.85})
-		PixelFont.draw(self, msg, Vector2(102, 207))
+		var mw := UI.SCREEN_W - LIST_X - 8
+		UI.window(self, LIST_X, UI.SCREEN_H - 46, mw, 30, {"alpha": 0.85})
+		PixelFont.draw(self, msg, Vector2(LIST_X + 10, UI.SCREEN_H - 37))
 
 	if phase == "victory":
-		UI.window(self, 70, 70, 180, 96)
+		UI.window(self, (UI.SCREEN_W - 260) / 2.0, 96, 260, 140)
 		PixelFont.draw_centered(self, Story.VICTORY_LINE, 160, 80, UI.COL_GOLD, {"outline": UI.COL_INK})
 		PixelFont.draw(self, "Experience", Vector2(84, 100), Color("#c0b8d8"))
 		PixelFont.draw_right(self, str(reward.xp), 236, 100)

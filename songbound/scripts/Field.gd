@@ -415,11 +415,43 @@ func _draw_tiles(cam: Vector2) -> void:
 			var sy := ty * TS - cam.y
 			draw_texture_rect(arr[Maps.variant_of(tx, ty, arr.size())],
 				Rect2(sx, sy, TS, TS), false)
+			_blend_edges(tx, ty, sx, sy, ch)
 			_tile_edges(tx, ty, sx, sy, ch)
 
 
 ## Contact shadow under anything solid, bright rim where water meets land. The
 ## same two effects that used to be baked into the composed image.
+## Let the neighbouring ground reach over the edge into this tile, so terrains
+## meet on a ragged line rather than on the tile boundary. Depth comes from the
+## position hash, so it is irregular but never changes between frames.
+func _blend_edges(tx: int, ty: int, sx: float, sy: float, ch: String) -> void:
+	var mine: int = Maps.BLEND_RANK.get(ch, -1)
+	if mine < 0:
+		return
+	for side in 4:
+		var nx := tx + (1 if side == 0 else (-1 if side == 1 else 0))
+		var ny := ty + (1 if side == 2 else (-1 if side == 3 else 0))
+		var nch := map.get_tile(nx, ny)
+		if nch == ch:
+			continue
+		var theirs: int = Maps.BLEND_RANK.get(nch, -1)
+		if theirs <= mine:
+			continue
+		var col := Color(str(Maps.BLEND_COL.get(nch, "#4a7a44")))
+		for i in TS:
+			# 0 to 3 pixels deep, and a quarter of the run left untouched so the
+			# edge breaks up rather than becoming a neat second border
+			var h := Maps.hash2(tx * 41 + i + side * 7, ty * 17 + side)
+			if h < 0.26:
+				continue
+			var d := 1 + int(h * 3.0)
+			match side:
+				0: UI.rect(self, sx + TS - d, sy + i, d, 1, col)
+				1: UI.rect(self, sx, sy + i, d, 1, col)
+				2: UI.rect(self, sx + i, sy + TS - d, 1, d, col)
+				3: UI.rect(self, sx + i, sy, 1, d, col)
+
+
 func _tile_edges(tx: int, ty: int, sx: float, sy: float, ch: String) -> void:
 	if ch == "~":
 		if map.get_tile(tx, ty - 1) != "~":

@@ -11,12 +11,22 @@ const TS := 16
 
 const SOLID := {
 	"~": true, "T": true, "P": true, "^": true, "r": true, "%": true, "F": true,
-	"#": true, "W": true, "R": true, "V": true, "X": true, "b": true, "c": true,
+	"#": true, "W": true, "n": true, "R": true, "V": true, "X": true, "b": true, "c": true,
 	"t": true, "p": true, "g": true, "S": true, "w": true, "m": true,
 }
 # How much a tile multiplies the encounter chance. Tall grass and cave floor
 # were at 3, which put caves at a fight every seven steps.
 const ENC := {".": 1, ",": 2, "\"": 1, "f": 1, "D": 2}
+
+## What each ground reads as when it spills over an edge, and which grounds win.
+## Higher rank grows over lower: grass over a path, undergrowth over grass.
+const BLEND_COL := {
+	"=": "#9c8258", "q": "#8a7048", "o": "#6d6b66", "\"": "#7f8a4e",
+	".": "#4a7a44", "f": "#4a7a44", ",": "#3a6339", "D": "#4a4458",
+}
+const BLEND_RANK := {
+	"o": 0, "=": 1, "q": 1, "\"": 2, ".": 3, "f": 3, ",": 4,
+}
 
 static var _atlas := {}
 
@@ -60,26 +70,26 @@ static func _tile_image(ch: String, v: int) -> Image:
 	var r := func(i: int) -> float: return hash2(v * 31 + i, v * 17 + i * 7)
 	match ch:
 		".", "f":
-			var base := Color("#3e7a42")
-			var lit := Color("#4d9152")
-			var dark := Color("#336a39")
+			# Three tones of grass with clumps standing on it, rather than one
+			# tone with noise sprinkled over it. Texture is scattered by hash and
+			# never banded by row -- banding draws the tile grid across the map.
+			var base := Color("#4a7a44")
 			_fill(img, 0, 0, 16, 16, base)
-			# texture scattered by hash, never banded by row: banding would draw
-			# the tile grid across the whole map
-			for i in 10:
-				var mx := int(r.call(i + 30) * 16)
-				var my := int(r.call(i + 44) * 16)
-				_fill(img, mx, my, 1, 1, lit if i % 2 == 0 else dark)
-			for i in 6:
-				var bx := int(r.call(i) * 15)
-				var by := 2 + int(r.call(i + 9) * 11)
-				_fill(img, bx, by, 1, 2, Color("#2d5f33"))
-				_fill(img, bx, by, 1, 1, Color("#58a35e"))
+			for i in 5:                              # broad soft patches
+				var px2 := int(r.call(i) * 13)
+				var py2 := int(r.call(i + 9) * 13)
+				_fill(img, px2, py2, 4, 3, Color("#436e3e") if i % 2 == 0 else Color("#52804a"))
+			for i in 7:                              # blades, lit at the tip
+				var bx := 1 + int(r.call(i + 3) * 13)
+				var by := 2 + int(r.call(i + 17) * 11)
+				_fill(img, bx, by, 1, 3, Color("#3b6537"))
+				_fill(img, bx, by, 1, 1, Color("#66955b"))
 			if ch == "f":
-				var fc: Color = [Color("#f0d040"), Color("#e878b0"), Color("#f0ecf8"), Color("#a878e0")][v % 4]
+				var fc: Color = [Color("#e8d27a"), Color("#d9dbe8"), Color("#c98fb4"), Color("#e0a05c")][v % 4]
 				for pos in [Vector2i(4, 6), Vector2i(10, 9), Vector2i(7, 12)]:
+					_fill(img, pos.x, pos.y + 2, 1, 1, Color("#3b6537"))
 					_fill(img, pos.x, pos.y, 2, 2, fc.darkened(0.35))
-					_fill(img, pos.x, pos.y, 1, 1, fc)
+					_fill(img, pos.x, pos.y, 1, 1, fc.lightened(0.25))
 		"\"":
 			# dry grass: the same grass with the green gone out of it, and enough
 			# bare earth showing through to read as a different country
@@ -94,15 +104,19 @@ static func _tile_image(ch: String, v: int) -> Image:
 				if i % 4 == 0:
 					_fill(img, dx7, dy7, 2, 2, Color("#8a7a52"))
 		",":
-			var gbase := Color("#336a39")
+			var gbase := Color("#3a6339")
 			_fill(img, 0, 0, 16, 16, gbase)
-			for i in 14:
+			for i in 5:
+				var sx2 := int(r.call(i + 30) * 13)
+				var sy2 := int(r.call(i + 37) * 13)
+				_fill(img, sx2, sy2, 4, 3, Color("#345a34"))
+			for i in 12:
 				var bx2 := int(r.call(i) * 15)
 				var by2 := 1 + int(r.call(i + 5) * 10)
 				var hgt := 4 + int(r.call(i + 21) * 2)
-				_fill(img, bx2, by2, 1, hgt, Color("#27532c"))
-				_fill(img, bx2, by2, 1, 2, Color("#4d9152"))
-				_fill(img, bx2, by2, 1, 1, Color("#63b268"))
+				_fill(img, bx2, by2, 1, hgt, Color("#2a4f2e"))
+				_fill(img, bx2, by2, 1, 2, Color("#46764a"))
+				_fill(img, bx2, by2, 1, 1, Color("#5c9260"))
 		'"':
 			_fill(img, 0, 0, 16, 16, Color("#4a7a44"))
 			for i in 8:
@@ -111,14 +125,24 @@ static func _tile_image(ch: String, v: int) -> Image:
 				_fill(img, bx3, by3, 2, 2, Color("#3a6636"))
 				_fill(img, bx3, by3, 1, 1, Color("#5f9257"))
 		"=", "q":
-			var road := Color("#9a7c50") if ch == "=" else Color("#8a7048")
+			# Packed earth: a lit body, a rut worn down the middle where the feet
+			# go, and stones pressed into it. Every stone gets a lit top and a
+			# dark underside, which is the whole trick for making a flat tile
+			# look like it has things sitting on it.
+			var road := Color("#9c8258") if ch == "=" else Color("#8a7048")
 			_fill(img, 0, 0, 16, 16, road)
-			for i in 9:
-				var bx4 := int(r.call(i) * 15)
+			_fill(img, 0, 6, 16, 5, road.darkened(0.10))
+			_dith(img, 0, 4, 16, 2, road.darkened(0.10), road)
+			_dith(img, 0, 11, 16, 2, road.darkened(0.10), road)
+			for i in 6:
+				var bx4 := 1 + int(r.call(i) * 13)
 				var by4 := 2 + int(r.call(i + 6) * 11)
-				_fill(img, bx4, by4, 1, 1, road.darkened(0.25))
-				if i % 3 == 0:
-					_fill(img, bx4, by4 - 1, 1, 1, road.lightened(0.2))
+				var sw := 2 if i % 2 == 0 else 1
+				_fill(img, bx4, by4, sw, 2, road.darkened(0.30))
+				_fill(img, bx4, by4, sw, 1, road.lightened(0.22))
+			for i in 3:
+				_fill(img, int(r.call(i + 21) * 15), int(r.call(i + 27) * 15), 1, 1,
+					Color("#5d7a49"))
 		"o":
 			_fill(img, 0, 0, 16, 16, Color("#6e6e6a"))
 			for a in 2:
@@ -152,27 +176,39 @@ static func _tile_image(ch: String, v: int) -> Image:
 				_fill(img, bx5, by5, 4, 1, Color("#4f8fc4"))
 				_fill(img, bx5 + 1, by5 - 1, 2, 1, Color("#79b4dd"))
 		"T":
-			_fill(img, 0, 0, 16, 16, Color("#3e7a42"))
-			_ellipse(img, 8, 14, 6, 2, Color("#2f6135"))
-			_fill(img, 7, 9, 2, 6, Color("#4a3018"))
-			_fill(img, 7, 9, 1, 6, Color("#63421f"))
-			_disc(img, 8, 7, 6, Color("#1f4a24"))
-			_disc(img, 7, 6, 5, Color("#2c6431"))
-			_disc(img, 6, 5, 3, Color("#3d7d40"))
-			_fill(img, 5, 3, 2, 1, Color("#55964f"))
-			_fill(img, 4, 4, 1, 1, Color("#55964f"))
+			# A canopy of overlapping lobes rather than one disc, lit from the top
+			# left, with a cast shadow on the ground to sit it down. A single flat
+			# circle reads as a bush.
+			_fill(img, 0, 0, 16, 16, Color("#4a7a44"))
+			_ellipse(img, 9, 14, 6, 2, Color("#3c6438"))
+			_fill(img, 7, 10, 3, 5, Color("#4a3018"))
+			_fill(img, 7, 10, 1, 5, Color("#6b4823"))
+			_fill(img, 9, 10, 1, 5, Color("#33200f"))
+			_disc(img, 8, 7, 6, Color("#1d4423"))
+			for lobe in [[6, 5, 4], [11, 6, 4], [8, 9, 4], [9, 4, 3]]:
+				_disc(img, int(lobe[0]), int(lobe[1]), int(lobe[2]), Color("#2b6231"))
+			for lobe in [[6, 5, 3], [10, 5, 2], [7, 8, 2]]:
+				_disc(img, int(lobe[0]), int(lobe[1]), int(lobe[2]), Color("#3a7a3e"))
+			_disc(img, 5, 4, 2, Color("#4d9350"))
+			_fill(img, 4, 3, 2, 1, Color("#63a862"))
+			_dith(img, 3, 9, 10, 3, Color("#1d4423"), Color("#2b6231"))
 		"P":
-			_fill(img, 0, 0, 16, 16, Color("#3e7a42"))
-			_ellipse(img, 8, 15, 5, 1, Color("#2f6135"))
-			_fill(img, 7, 12, 2, 4, Color("#42301a"))
+			_fill(img, 0, 0, 16, 16, Color("#4a7a44"))
+			_ellipse(img, 9, 15, 5, 1, Color("#3c6438"))
+			_fill(img, 7, 12, 3, 4, Color("#42301a"))
+			_fill(img, 7, 12, 1, 4, Color("#63421f"))
+			# skirts of needles, each lit along the top and dark underneath so
+			# the tiers read as tiers rather than as stripes
 			for i in 4:
 				var wd := 3 + i * 3
 				var yy2 := 2 + i * 3
 				var xx2 := 8 - (wd >> 1)
-				_fill(img, xx2, yy2, wd, 3, Color("#1c4a24"))
-				_fill(img, xx2, yy2, wd, 1, Color("#2f6c34"))
-				_fill(img, xx2, yy2, maxi(1, int(wd / 2)), 1, Color("#3f8543"))
-			_fill(img, 7, 0, 2, 3, Color("#2f6c34"))
+				_fill(img, xx2, yy2, wd, 3, Color("#1b4522"))
+				_fill(img, xx2, yy2, wd, 1, Color("#2e6a33"))
+				_fill(img, xx2, yy2, maxi(1, int(wd / 2)), 1, Color("#41894a"))
+				_fill(img, xx2, yy2 + 2, wd, 1, Color("#14351a"))
+			_fill(img, 7, 0, 2, 3, Color("#2e6a33"))
+			_fill(img, 7, 0, 1, 2, Color("#41894a"))
 		"^":
 			_fill(img, 0, 0, 16, 16, Color("#5c554c"))
 			# two faces: lit to the left of the ridge, shadowed to the right
@@ -229,37 +265,100 @@ static func _tile_image(ch: String, v: int) -> Image:
 					_fill(img, bx6 + 1, a2 * 4 + 1, 6, 2, tone2)
 					_fill(img, bx6 + 1, a2 * 4 + 1, 6, 1, tone2.lightened(0.18))
 		"W":
-			_fill(img, 0, 0, 16, 16, Color("#8a6440"))
-			for i in 4:
-				_fill(img, 0, i * 4, 16, 1, Color("#5e4229"))
-				_fill(img, 0, i * 4 + 1, 16, 1, Color("#a07a50"))
-			_fill(img, 3, 2, 1, 2, Color("#6b4c2e"))
-			_fill(img, 11, 10, 1, 2, Color("#6b4c2e"))
+			# The front of the building. The dark band across the top is the
+			# shadow the overhanging roof casts on it, and it is the reason the
+			# roof reads as being in front of the wall rather than beside it.
+			var plaster := Color("#c9b189")
+			_fill(img, 0, 0, 16, 16, plaster)
+			_fill(img, 0, 12, 16, 4, Color("#a08a66"))        # ground shading
+			_dith(img, 0, 10, 16, 2, Color("#a08a66"), plaster)
+			_fill(img, 0, 0, 16, 3, Color("#6d5a41"))         # eave shadow
+			_fill(img, 0, 3, 16, 1, Color("#8f7859"))
+			# timber framing
+			_fill(img, 0, 4, 1, 12, Color("#6b4c2e"))
+			_fill(img, 15, 4, 1, 12, Color("#6b4c2e"))
+			_fill(img, 0, 15, 16, 1, Color("#5a4527"))
+			if v % 2 == 0:
+				# a window: frame, dark glass, and a bright corner where the sky
+				# catches it
+				_fill(img, 4, 6, 8, 7, Color("#5a3f22"))
+				_fill(img, 5, 7, 6, 5, Color("#3c4a63"))
+				_fill(img, 5, 7, 3, 3, Color("#5d7194"))
+				_fill(img, 5, 7, 2, 1, Color("#8fa4c4"))
+				_fill(img, 8, 7, 1, 5, Color("#5a3f22"))
+				_fill(img, 5, 9, 6, 1, Color("#5a3f22"))
+				_fill(img, 4, 12, 8, 1, Color("#8a6c47"))     # sill
+			else:
+				_fill(img, 3, 7, 1, 8, Color("#a58f6b"))      # a beam
+				_fill(img, 12, 9, 1, 6, Color("#a58f6b"))
+		"n":
+			# The lower course of the front wall. No eave shadow -- that belongs
+			# only on the row the roof actually overhangs.
+			var plaster2 := Color("#c9b189")
+			_fill(img, 0, 0, 16, 16, plaster2)
+			_fill(img, 0, 11, 16, 5, Color("#a08a66"))
+			_dith(img, 0, 9, 16, 2, Color("#a08a66"), plaster2)
+			_fill(img, 0, 0, 1, 16, Color("#6b4c2e"))
+			_fill(img, 15, 0, 1, 16, Color("#6b4c2e"))
+			_fill(img, 0, 15, 16, 1, Color("#5a4527"))
+			_fill(img, 0, 14, 16, 1, Color("#8a7a5c"))
+			if v % 3 == 0:
+				_fill(img, 5, 3, 6, 6, Color("#5a3f22"))      # a small window
+				_fill(img, 6, 4, 4, 4, Color("#3c4a63"))
+				_fill(img, 6, 4, 2, 2, Color("#5d7194"))
+				_fill(img, 5, 9, 6, 1, Color("#8a6c47"))
+			else:
+				_fill(img, 4, 2, 1, 11, Color("#a58f6b"))
+				_fill(img, 11, 5, 1, 8, Color("#a58f6b"))
 		"R":
-			for a3 in 4:
-				for b3 in 4:
-					var tone3 := Color("#a04438") if (a3 + b3) % 2 == 1 else Color("#8a3830")
-					_fill(img, b3 * 4, a3 * 4, 4, 3, tone3)
-					_fill(img, b3 * 4, a3 * 4, 4, 1, tone3.lightened(0.2))
-					_fill(img, b3 * 4, a3 * 4 + 2, 4, 1, tone3.darkened(0.25))
-			_fill(img, 0, 0, 16, 1, Color("#c96a56"))
+			# Courses of shingles running across the slope, each lit along its
+			# upper edge with a dark seam beneath, and offset course to course so
+			# the joins do not line up into a grid.
+			_fill(img, 0, 0, 16, 16, Color("#9c4034"))
+			for course in 4:
+				var cy2 := course * 4
+				var off3 := 0 if course % 2 == 0 else 2
+				_fill(img, 0, cy2, 16, 4, Color("#9c4034"))
+				_fill(img, 0, cy2, 16, 1, Color("#c2604c"))       # lit edge
+				_fill(img, 0, cy2 + 3, 16, 1, Color("#5f231d"))   # seam under
+				for tile3 in 5:
+					var tx3 := -off3 + tile3 * 4
+					_fill(img, tx3, cy2 + 1, 1, 2, Color("#7d3129"))
+					if hash2(v * 7 + course, tile3) > 0.7:
+						_fill(img, tx3 + 1, cy2 + 1, 2, 1, Color("#b1523f"))
 		"V":
-			_fill(img, 0, 0, 16, 16, Color("#6a2a24"))
-			_fill(img, 0, 4, 16, 12, Color("#8a3830"))
-			_dith(img, 0, 4, 16, 3, Color("#a04438"), Color("#8a3830"))
-			_fill(img, 0, 2, 16, 2, Color("#c96a56"))
-			_fill(img, 0, 0, 16, 2, Color("#4a1e18"))
-			_fill(img, 6, 8, 4, 8, Color("#3a1512"))
+			# The ridge along the top of the roof: a capping course sitting proud
+			# of the slope, bright where it faces the sky.
+			_fill(img, 0, 0, 16, 16, Color("#9c4034"))
+			_fill(img, 0, 0, 16, 2, Color("#4a1e18"))         # sky side of the cap
+			_fill(img, 0, 2, 16, 3, Color("#d2735c"))         # lit cap
+			_fill(img, 0, 5, 16, 1, Color("#6a2a24"))         # shadow under it
+			for course in 3:
+				var cy3 := 6 + course * 4
+				_fill(img, 0, cy3, 16, 1, Color("#c2604c"))
+				_fill(img, 0, cy3 + 3, 16, 1, Color("#5f231d"))
+				for tile4 in 4:
+					_fill(img, tile4 * 4 + (course % 2) * 2, cy3 + 1, 1, 2, Color("#7d3129"))
 		"d":
-			_fill(img, 0, 0, 16, 16, Color("#8a6440"))
-			_fill(img, 2, 2, 12, 14, Color("#402a14"))
-			_fill(img, 3, 3, 10, 13, Color("#71482a"))
-			for i in 3:
-				_fill(img, 3 + i * 4, 3, 1, 13, Color("#5a3a1e"))
-				_fill(img, 4 + i * 4, 3, 1, 13, Color("#835434"))
-			_fill(img, 3, 3, 10, 1, Color("#9a6640"))
-			_fill(img, 11, 9, 2, 2, Color("#f0d040"))
-			_fill(img, 11, 9, 1, 1, Color("#fff0a8"))
+			# Set into the same wall, so the eave shadow across the top has to
+			# line up with the tiles either side or the front of the house
+			# breaks in half.
+			_fill(img, 0, 0, 16, 16, Color("#c9b189"))
+			_fill(img, 0, 0, 16, 3, Color("#6d5a41"))
+			_fill(img, 0, 3, 16, 1, Color("#8f7859"))
+			_fill(img, 2, 4, 12, 12, Color("#5a3f22"))        # frame
+			_fill(img, 3, 5, 10, 11, Color("#7b5230"))        # door
+			_fill(img, 3, 5, 10, 1, Color("#96663d"))         # lit top edge
+			_fill(img, 3, 5, 1, 11, Color("#8d5f39"))
+			_fill(img, 12, 5, 1, 11, Color("#5f4023"))
+			for panel in 2:                                   # two panels
+				var py3 := 6 + panel * 5
+				_fill(img, 5, py3, 6, 4, Color("#6b4629"))
+				_fill(img, 5, py3, 6, 1, Color("#8a5c35"))
+				_fill(img, 5, py3 + 3, 6, 1, Color("#4d3319"))
+			_fill(img, 10, 10, 2, 2, Color("#e8c25c"))        # handle
+			_fill(img, 10, 10, 1, 1, Color("#fff0a8"))
+			_fill(img, 1, 15, 14, 1, Color("#9a9086"))        # stone step
 		"_":
 			_fill(img, 0, 0, 16, 16, Color("#9a7448"))
 			for i in 4:
@@ -447,10 +546,18 @@ class GameMap extends RefCounted:
 			y += 1 if y < y1 else -1
 		set_tile(x1, y1, "B" if get_tile(x1, y1) == "~" else "=")
 
+	## A house seen from slightly above and in front: a ridge, a roof, and a
+	## front wall two tiles tall with the door in the bottom of it. One row of
+	## wall under three of roof reads as a shed with a big hat.
 	func building(x: int, y: int, bw: int, bh: int, door_off: int) -> Vector2i:
+		var wall_rows: int = 2 if bh >= 4 else 1
+		var roof_rows: int = maxi(0, bh - 1 - wall_rows)
 		rect(x, y, bw, 1, "V")
-		rect(x, y + 1, bw, bh - 2, "R")
-		rect(x, y + bh - 1, bw, 1, "W")
+		if roof_rows > 0:
+			rect(x, y + 1, bw, roof_rows, "R")
+		rect(x, y + bh - wall_rows, bw, 1, "W")
+		if wall_rows > 1:
+			rect(x, y + bh - wall_rows + 1, bw, wall_rows - 1, "n")
 		var dx := x + door_off
 		set_tile(dx, y + bh - 1, "d")
 		return Vector2i(dx, y + bh - 1)
