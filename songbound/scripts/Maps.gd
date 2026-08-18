@@ -14,9 +14,29 @@ const SOLID := {
 	"#": true, "W": true, "n": true, "R": true, "V": true, "X": true, "b": true, "c": true,
 	"t": true, "p": true, "g": true, "S": true, "w": true, "m": true,
 }
+## How high off the ground a tile is. A step belongs to both heights at once,
+## which is what makes it a way up rather than another piece of floor.
+const HIGH := "H"
+const STEPS := "<"
+
+static func level_of(ch: String) -> int:
+	if ch == HIGH:
+		return 1
+	if ch == STEPS:
+		return -1                     # a connector: matches whatever it meets
+	return 0
+
+
+## Whether you can walk from one square to the next, as far as height goes.
+static func levels_connect(from_ch: String, to_ch: String) -> bool:
+	var a := level_of(from_ch)
+	var b := level_of(to_ch)
+	return a == b or a == -1 or b == -1
+
+
 # How much a tile multiplies the encounter chance. Tall grass and cave floor
 # were at 3, which put caves at a fight every seven steps.
-const ENC := {".": 1, ",": 2, "\"": 1, "f": 1, "D": 2}
+const ENC := {".": 1, ",": 2, "\"": 1, "f": 1, "D": 2, "H": 1}
 
 ## What each ground reads as when it spills over an edge, and which grounds win.
 ## Higher rank grows over lower: grass over a path, undergrowth over grass.
@@ -663,6 +683,40 @@ static func _tile_image(ch: String, v: int) -> Image:
 			_ellipse(img, 24, 39, 15, 21, Color("#050307"))
 			_fill(img, 6, 9, 36, 3, Color("#8d8578"))
 			_fill(img, 9, 6, 30, 3, Color("#9a9186"))
+		"H":
+			# The top of a plateau: the same grass, but catching more light for
+			# being higher up. The rock face down its lower edge is drawn by the
+			# field, which is the only thing that knows what is below it.
+			_fill(img, 0, 0, 48, 48, Color("#5c8a50"))
+			for i in 12:
+				_fill(img, int(r.call(i) * 41), int(r.call(i + 9) * 41), 8, 5,
+					Color("#548049") if i % 2 == 0 else Color("#659356"))
+			for i in 26:
+				var hx := 1 + int(r.call(i + 3) * 45)
+				var hy := 3 + int(r.call(i + 17) * 40)
+				_fill(img, hx, hy, 1, 4, Color("#487341"))
+				_fill(img, hx, hy, 1, 2, Color("#79a663"))
+			# a scatter of stone showing through, since this is the top of a crag
+			for i in 4:
+				var rx2 := int(r.call(i + 40) * 40)
+				var ry2 := int(r.call(i + 46) * 40)
+				_fill(img, rx2, ry2, 6, 4, Color("#7d766a"))
+				_fill(img, rx2, ry2, 6, 1, Color("#9a9186"))
+		"<":
+			# Steps cut into the face: treads catching the light, risers in
+			# shadow, and a worn strip up the middle where the feet go.
+			_fill(img, 0, 0, 48, 48, Color("#5f5852"))
+			for i in 6:
+				var sy2 := i * 8
+				_fill(img, 2, sy2, 44, 8, Color("#7d766a"))
+				_fill(img, 2, sy2, 44, 3, Color("#98918a"))
+				_fill(img, 2, sy2 + 6, 44, 2, Color("#3f3a34"))
+				_fill(img, 16, sy2, 16, 3, Color("#a49d94"))
+				for k in 3:
+					if hash2(v * 3 + i, k) > 0.6:
+						_fill(img, 6 + k * 13, sy2 + 3, 3, 2, Color("#6b645c"))
+			_fill(img, 0, 0, 2, 48, Color("#463f3a"))
+			_fill(img, 46, 0, 2, 48, Color("#463f3a"))
 		"m":
 			_fill(img, 0, 0, 48, 48, Color("#000000"))
 		_:
@@ -685,7 +739,7 @@ static func _ellipse(img: Image, cx: int, cy: int, rx: int, ry: int, c: Color) -
 static func atlas() -> Dictionary:
 	if not _atlas.is_empty():
 		return _atlas
-	var chars := ". , \" f = o q B ~ T P ^ r % F # W n R V d _ l D * X b c t p g S w C m".split(" ")
+	var chars := ". , \" f = o q B ~ T P ^ r % F # W n R V d _ l D * X b c t p g S w C m H <".split(" ")
 	for ch in chars:
 		var variants := []
 		for v in variant_count(ch):
@@ -786,6 +840,15 @@ class GameMap extends RefCounted:
 		var dx := x + door_off
 		set_tile(dx, y + bh - 1, "d")
 		return Vector2i(dx, y + bh - 1)
+
+	## Whether a step from one square to the next is possible: the destination
+	## has to be walkable, and the two have to be at the same height unless one
+	## of them is a flight of steps.
+	func can_step(fx: int, fy: int, tx: int, ty: int, opened: Dictionary) -> bool:
+		if not can_walk(tx, ty, opened):
+			return false
+		return Maps.levels_connect(get_tile(fx, fy), get_tile(tx, ty))
+
 
 	func can_walk(x: int, y: int, opened: Dictionary) -> bool:
 		if x < 0 or y < 0 or x >= w or y >= h:

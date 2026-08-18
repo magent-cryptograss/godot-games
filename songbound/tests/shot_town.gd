@@ -20,10 +20,23 @@ func _ready() -> void:
 	World.build_all()
 	field = preload("res://scenes/Field.tscn").instantiate()
 	add_child(field)
-	field.enter("world", _find_tall_grass())
+	field.enter("world", _find_plateau())
 	field.msg = null
 	print("  standing on '%s' at %s" % [
 		World.build_all()["world"].get_tile(field.pos.x, field.pos.y), field.pos])
+
+
+## The foot of a flight of steps, so the ledge, the face and the way up are all
+## in the same picture.
+func _find_plateau() -> Vector2i:
+	var m: Maps.GameMap = World.build_all()["world"]
+	for y in range(12, m.h - 12):
+		for x in range(12, m.w - 12):
+			if m.get_tile(x, y) == Maps.STEPS:
+				print("  steps at %d,%d" % [x, y])
+				return Vector2i(x, y + 2)
+	print("  NO STEPS FOUND -- falling back to the town")
+	return World.town_gate
 
 
 ## A deep patch of tall grass, so the blades drawn over the figure can be judged

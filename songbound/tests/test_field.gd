@@ -119,6 +119,61 @@ func _audit() -> void:
 	print("  (overworld is %dx%d = %d tiles; %d reachable on foot from town)" % [
 		world.w, world.h, world.w * world.h, reach.size()])
 
+	# ---- high ground -------------------------------------------------------
+	var high := 0
+	var teasing := 0
+	var first_bad := Vector2i(-1, -1)
+	var neighbours: Array[Vector2i] = [Vector2i(1, 0), Vector2i(-1, 0),
+		Vector2i(0, 1), Vector2i(0, -1)]
+	for y in range(1, world.h - 1):
+		for x in range(1, world.w - 1):
+			if world.get_tile(x, y) != Maps.HIGH:
+				continue
+			high += 1
+			if reach.has(Vector2i(x, y)):
+				continue
+			# stranded -- but that only matters if somebody can stand at its foot
+			for step in neighbours:
+				var n: Vector2i = Vector2i(x, y) + step
+				if Maps.level_of(world.get_tile(n.x, n.y)) == 0 and reach.has(n):
+					teasing += 1
+					if first_bad.x < 0:
+						first_bad = Vector2i(x, y)
+					break
+	_expect(high > 200, "there is high ground to climb (%d squares)" % high)
+	_expect(teasing == 0,
+		"no plateau you can reach the foot of but never climb (%d, first %s)" % [
+			teasing, first_bad])
+
+	# a ledge has to stop you, or the rock face is decoration over nothing
+	var ledges := 0
+	var leaks := 0
+	for y in range(1, world.h - 1):
+		for x in range(1, world.w - 1):
+			if world.get_tile(x, y) != Maps.HIGH:
+				continue
+			var below := world.get_tile(x, y + 1)
+			if Maps.level_of(below) != 0 or Maps.is_solid(below):
+				continue
+			ledges += 1
+			if world.can_step(x, y + 1, x, y, {}):
+				leaks += 1
+	_expect(ledges > 30, "there are ledges (%d)" % ledges)
+	_expect(leaks == 0, "you cannot walk up a ledge (%d places you could)" % leaks)
+
+	# and the steps are the way through
+	var steps := 0
+	for y in world.h:
+		for x in world.w:
+			if world.get_tile(x, y) == Maps.STEPS:
+				steps += 1
+	_expect(steps > 0, "there are steps (%d)" % steps)
+	_expect(Maps.levels_connect(Maps.STEPS, Maps.HIGH)
+			and Maps.levels_connect(".", Maps.STEPS),
+		"steps join the low ground to the high")
+	_expect(not Maps.levels_connect(".", Maps.HIGH),
+		"low ground and high ground do not join directly")
+
 	# each cave floor must connect its entrance to its exit
 	for pair in [["cave1", Vector2i(8, 24), Vector2i(33, 7)],
 			["cave2", Vector2i(6, 22), Vector2i(17, 2)],
@@ -196,10 +251,16 @@ func _flood(m: Maps.GameMap, from: Vector2i) -> Reach:
 			continue
 		r.seen[idx] = 1
 		r.count += 1
-		stack.append(Vector2i(p.x + 1, p.y))
-		stack.append(Vector2i(p.x - 1, p.y))
-		stack.append(Vector2i(p.x, p.y + 1))
-		stack.append(Vector2i(p.x, p.y - 1))
+		# the same height rule the player walks by: without it the fill strolls
+		# up a cliff and reports a plateau as reachable because the squares
+		# happen to be next to each other
+		var here := m.get_tile(p.x, p.y)
+		var steps: Array[Vector2i] = [Vector2i(1, 0), Vector2i(-1, 0),
+			Vector2i(0, 1), Vector2i(0, -1)]
+		for step in steps:
+			var n: Vector2i = p + step
+			if Maps.levels_connect(here, m.get_tile(n.x, n.y)):
+				stack.append(n)
 	return r
 
 

@@ -155,7 +155,7 @@ func _process(dt: float) -> void:
 			facing = nd
 			var f := _facing_tile()
 			var wp = map.warp_at(f.x, f.y)
-			if map.can_walk(f.x, f.y, Game.player.flags) or wp != null:
+			if map.can_step(pos.x, pos.y, f.x, f.y, Game.player.flags) or wp != null:
 				walking = true
 				move_t = 0.0
 				target = f
@@ -645,6 +645,20 @@ func _tile_edges(tx: int, ty: int, sx: float, sy: float, ch: String) -> void:
 		return
 	if Maps.is_solid(ch):
 		return
+	# The rock face of a plateau above, drawn down over this square: high ground
+	# has to show what holds it up, or it is a patch of paler grass.
+	if map.get_tile(tx, ty - 1) == Maps.HIGH and Maps.level_of(ch) == 0:
+		var face := 20
+		UI.rect(self, sx, sy, TS, 2, Color("#9a9186"))          # the lip
+		UI.rect(self, sx, sy + 2, TS, face - 2, Color("#6b645a"))
+		for i in 6:
+			var gx := sx + 2 + int(Maps.hash2(tx * 11 + i, ty) * float(TS - 6))
+			var gh := 5 + int(Maps.hash2(tx, ty * 7 + i) * float(face - 8))
+			UI.rect(self, gx, sy + 3, 2, gh, Color("#544e46"))
+			UI.rect(self, gx + 2, sy + 3, 1, gh, Color("#7d766a"))
+		UI.rect(self, sx, sy + face - 3, TS, 3, Color("#3f3a34"))
+		UI.rect(self, sx, sy + face, TS, 2, Color(0, 0, 0, 0.34))
+
 	# A cast shadow rather than a contact line: the light is at the top left of
 	# every tile, so what stands above and to the left of this ground throws
 	# across it. This is most of what fixes an object to the floor instead of

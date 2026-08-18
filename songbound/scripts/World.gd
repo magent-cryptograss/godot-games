@@ -201,9 +201,68 @@ static func _world() -> void:
 			"item": chest_items[placed % chest_items.size()], "id": "wild%d" % placed})
 		placed += 1
 
+	_plateaus(m)
+
 	m.region = "meadow"
 	m.start = Vector2i(town.x, town.y + 3)
 	maps["world"] = m
+
+
+## High ground you can stand on, with steps up to it.
+##
+## Laid after the roads, and kept clear of them: a plateau dropped across the
+## road would cut the world in half, and the audit would be quite right to
+## complain about it.
+static func _plateaus(m: Maps.GameMap) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 5150
+	var soft := {".": true, "f": true, "\"": true, ",": true}
+	var placed := 0
+	var tries := 0
+	while placed < 16 and tries < 6000:
+		tries += 1
+		var cx := rng.randi_range(12, m.w - 13)
+		var cy := rng.randi_range(12, m.h - 13)
+		var rx := rng.randi_range(3, 6)
+		var ry := rng.randi_range(3, 5)
+
+		# nothing but open country underneath, with room to spare all round --
+		# roads, water, buildings and doorways all have to stay well clear
+		var clear := true
+		for dy in range(-ry - 3, ry + 5):
+			for dx in range(-rx - 3, rx + 4):
+				if not soft.has(m.get_tile(cx + dx, cy + dy)):
+					clear = false
+					break
+			if not clear:
+				break
+		if not clear:
+			continue
+
+		# A block with its top corners knocked off. The bottom edge has to be one
+		# straight run or the rock face below it comes out as a scatter of slabs
+		# at different heights, which reads as damage rather than as a cliff.
+		for dy in range(-ry, ry + 1):
+			var inset := 0
+			if dy == -ry:
+				inset = 2
+			elif dy == -ry + 1:
+				inset = 1
+			for dx in range(-rx + inset, rx - inset + 1):
+				m.set_tile(cx + dx, cy + dy, Maps.HIGH)
+
+		# the way up, at the foot of the near side
+		var foot := cy + ry
+		while foot > cy and m.get_tile(cx, foot) != Maps.HIGH:
+			foot -= 1
+		m.set_tile(cx, foot + 1, Maps.STEPS)
+
+		if placed % 2 == 0:
+			m.chests.append({"x": cx, "y": cy - 1, "item":
+				["tonic2", "rosin2", "strings", "bread"][placed % 4],
+				"id": "high%d" % placed})
+		placed += 1
+	print("[world] %d plateaus" % placed)
 
 
 ## What a roadside post says: the three nearest places by name, which way, and

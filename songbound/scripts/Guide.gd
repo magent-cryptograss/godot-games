@@ -140,13 +140,14 @@ const MAP_COLS := {
 	"r": "#6b645a", "%": "#2f6c34", "F": "#8a6a40", "#": "#7b736c",
 	"W": "#c9b189", "n": "#b39c76", "R": "#a04438", "V": "#8a3830", "d": "#71482a",
 	"C": "#241a2a", "S": "#70d0ff", "g": "#7f7a76", "w": "#8d8578",
+	"H": "#6fa05c", "<": "#8d8578",
 }
 
 ## What survives when several tiles share one pixel. A one-tile-wide road is
 ## invisible under any sane averaging, and the road is the whole point.
 const MAP_RANK := {
 	"=": 9, "B": 9, "o": 8, "C": 8, "S": 7, "~": 6, "R": 5, "V": 5, "W": 5,
-	"^": 4, "r": 3, "T": 2, "P": 2, "%": 2, "F": 2,
+	"^": 4, "r": 3, "T": 2, "P": 2, "%": 2, "F": 2, "H": 3, "<": 7,
 }
 
 static var _map_tex: ImageTexture = null
