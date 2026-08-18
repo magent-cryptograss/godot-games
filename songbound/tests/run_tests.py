@@ -24,7 +24,8 @@ PROJECT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Scenes that need a real renderer, and so run under xvfb.
 RENDERED = {"TestField", "TestWater", "TestCreation", "TestVisual", "TestWalk",
-            "TestWorldMap", "TestGuide", "TestShop", "ShotTown", "ShotKnown"}
+            "TestWorldMap", "TestGuide", "TestShop", "ShotTown", "ShotKnown",
+            "ShotWayside"}
 
 # Anything Godot prints when something has gone wrong, however calmly the test
 # itself then reports success.

@@ -5,6 +5,10 @@ extends RefCounted
 
 static var maps := {}
 
+# preloaded rather than named: a new script is not in Godot's class cache until
+# something rescans the project, and a headless run never does
+const WAYSIDE := preload("res://scripts/Wayside.gd")
+
 ## Where the world generator put things. Published so the town, the caves and
 ## the tests do not have to hardcode coordinates that move whenever the world
 ## is regenerated or resized.
@@ -202,6 +206,16 @@ static func _world() -> void:
 		placed += 1
 
 	_plateaus(m)
+
+	# and then everything you meet between one place and the next. Last, so that
+	# roads and plateaus have already claimed the ground they need -- a well can
+	# go anywhere, and a road cannot.
+	var keep_clear: Array = [town, cave]
+	for k in Places.sites:
+		keep_clear.append(Places.sites[k].gate)
+	for wp in waypoints:
+		keep_clear.append(wp)
+	WAYSIDE.scatter(m, keep_clear)
 
 	m.region = "meadow"
 	m.start = Vector2i(town.x, town.y + 3)

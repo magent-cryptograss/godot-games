@@ -12,7 +12,7 @@ const TS := 48
 const SOLID := {
 	"~": true, "T": true, "P": true, "^": true, "r": true, "%": true, "F": true,
 	"#": true, "W": true, "n": true, "R": true, "V": true, "X": true, "b": true, "c": true,
-	"t": true, "p": true, "g": true, "S": true, "w": true, "m": true,
+	"t": true, "p": true, "g": true, "S": true, "w": true, "m": true, "e": true,
 }
 ## How high off the ground a tile is. A step belongs to both heights at once,
 ## which is what makes it a way up rather than another piece of floor.
@@ -672,6 +672,35 @@ static func _tile_image(ch: String, v: int) -> Image:
 			_fill(img, 34, 6, 5, 24, Color("#6b4e2b"))
 			_fill(img, 7, 2, 35, 6, Color("#8a3830"))
 			_fill(img, 7, 2, 35, 3, Color("#a04438"))
+		"e":
+			# A campfire: a ring of stones with the gaps between them, two logs
+			# laid across, and flame. A camp without a fire in it is a paved yard
+			# with somebody standing on it, which is what this was.
+			_fill(img, 0, 0, 48, 48, Color("#4a7a44"))
+			_ellipse(img, 24, 30, 21, 12, Color("#6a5f4c"))
+			_ellipse(img, 24, 29, 17, 9, Color("#2a2018"))
+			# the ring: separate stones, not a smooth kerb
+			for k in 9:
+				var a: float = float(k) / 9.0 * TAU
+				var sx := 24 + int(cos(a) * 17.0)
+				var sy := 29 + int(sin(a) * 9.0)
+				var rr := 4 + int(r.call(k) * 3.0)
+				_ellipse(img, sx, sy, rr, rr - 1, Color("#8d8578"))
+				_ellipse(img, sx, sy - 1, rr - 1, rr - 2, Color("#a39a8c"))
+			# two logs, burnt at the inner ends
+			_fill(img, 13, 28, 22, 5, Color("#5a3f26"))
+			_fill(img, 13, 28, 22, 2, Color("#6b4e2b"))
+			_fill(img, 24, 28, 11, 5, Color("#241a14"))
+			_fill(img, 22, 20, 5, 14, Color("#4a3320"))
+			_fill(img, 22, 26, 5, 8, Color("#1e1610"))
+			# flame, brightest at the heart
+			_ellipse(img, 24, 24, 8, 10, Color("#c4471f"))
+			_ellipse(img, 24, 23, 6, 8, Color("#e8842a"))
+			_ellipse(img, 24, 22, 4, 6, Color("#f6c94a"))
+			_ellipse(img, 24, 21, 2, 3, Color("#fdf0b0"))
+			# and a couple of sparks going up
+			_fill(img, 20, 13, 2, 2, Color("#f6c94a"))
+			_fill(img, 28, 9, 2, 2, Color("#e8842a"))
 		"C":
 			# a mouth in the rock, dark all the way in
 			_fill(img, 0, 0, 48, 48, Color("#6b645a"))
@@ -739,7 +768,7 @@ static func _ellipse(img: Image, cx: int, cy: int, rx: int, ry: int, c: Color) -
 static func atlas() -> Dictionary:
 	if not _atlas.is_empty():
 		return _atlas
-	var chars := ". , \" f = o q B ~ T P ^ r % F # W n R V d _ l D * X b c t p g S w C m H <".split(" ")
+	var chars := ". , \" f = o q B ~ T P ^ r % F # W n R V d _ l D * X b c t p g S w C m H < e".split(" ")
 	for ch in chars:
 		var variants := []
 		for v in variant_count(ch):

@@ -216,6 +216,14 @@ func _audit() -> void:
 				stuck += 1
 	_expect(stuck == 0, "every town door can be walked to from the gate")
 
+	# every chest in the overworld has to be one somebody can open
+	var shut := 0
+	for c in world.chests:
+		if not reach.has(Vector2i(int(c.x), int(c.y))):
+			print("    chest %s at %d,%d cannot be reached" % [c.id, int(c.x), int(c.y)])
+			shut += 1
+	_expect(shut == 0, "every chest on the overworld can be reached (%d cannot)" % shut)
+
 	# ---- and everybody can be spoken to ------------------------------------
 	#
 	# The flow test proved the shop screen worked by calling _on_shop() itself,

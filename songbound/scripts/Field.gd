@@ -370,8 +370,21 @@ func _draw() -> void:
 
 	# depth-sort everything that stands up, so sprites overlap correctly
 	var list := []
+	# Only the ones on screen. This used to queue every NPC on the map, which was
+	# harmless while a map held a dozen and is not once the roads have people on
+	# them: the sort grows with the population of the world rather than with what
+	# you can see, and top_row below is dragged up to the northernmost person
+	# alive, dragging the tile scan with it.
+	var cx0: float = cam.x - TS * 2
+	var cy0: float = cam.y - TS * 2
+	var cx1: float = cam.x + UI.SCREEN_W + TS * 2
+	var cy1: float = cam.y + UI.SCREEN_H + TS * 2
 	for n in map.npcs:
 		if n.get("sign", false):
+			continue
+		var nx: float = float(n.x) * TS
+		var ny: float = float(n.y) * TS
+		if nx < cx0 or ny < cy0 or nx > cx1 or ny > cy1:
 			continue
 		list.append({"y": float(n.y), "kind": "npc", "ref": n})
 	if map.boss != null and not Game.player.flags.get("boss_" + map.boss.flag, false):
