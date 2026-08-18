@@ -404,6 +404,10 @@ func _draw() -> void:
 					gd = Sprites.mirrored(Sprites.side_view(g))
 				elif d == "right":
 					gd = Sprites.side_view(g)
+				# everyone gets one -- a shadow under one figure and none under the
+				# next says the light is not real
+				UI.shadow(self, n.x * TS - cam.x + float(Sprites.W) * 0.5,
+					n.y * TS - cam.y - 24 + float(Sprites.H) - 3, 14, 4)
 				var nlook := UI.FACE_FRONT
 				if d == "left":
 					nlook = UI.FACE_LEFT
@@ -424,7 +428,10 @@ func _draw() -> void:
 				# so it hangs above the tile and the feet still sit on it
 				var px := pos.x * TS + offset.x - cam.x
 				var py := pos.y * TS + offset.y - cam.y - 24
-				UI.shadow(self, px + 12, py + 31, 7, 2)
+				# under the soles, not the waist: these numbers were written for a
+				# 24x32 figure and never grew with it
+				UI.shadow(self, px + float(Sprites.W) * 0.5, py + float(Sprites.H) - 3,
+					14, 4)
 				# each facing is its own drawing now, so nothing is flipped here
 				var look := UI.FACE_FRONT
 				if facing == "left":
