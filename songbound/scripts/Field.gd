@@ -198,12 +198,16 @@ func _process(dt: float) -> void:
 	queue_redraw()
 
 
-func _facing_tile() -> Vector2i:
+func _facing_step() -> Vector2i:
 	match facing:
-		"left": return pos + Vector2i(-1, 0)
-		"right": return pos + Vector2i(1, 0)
-		"up": return pos + Vector2i(0, -1)
-		_: return pos + Vector2i(0, 1)
+		"left": return Vector2i(-1, 0)
+		"right": return Vector2i(1, 0)
+		"up": return Vector2i(0, -1)
+		_: return Vector2i(0, 1)
+
+
+func _facing_tile() -> Vector2i:
+	return pos + _facing_step()
 
 
 func _opposite(d: String) -> String:
@@ -214,10 +218,27 @@ func _opposite(d: String) -> String:
 		_: return "left"
 
 
+## Every square you could be talking to, in the order you would mean them.
+##
+## A shopkeeper stands behind a counter, which is the whole idea of a counter --
+## and a counter is solid, so the square you are facing is the counter itself and
+## the keeper is one further back, walled in. Reaching across it is not a special
+## case for shops; it is what a counter is for.
+func _talk_tiles() -> Array[Vector2i]:
+	var step := _facing_step()
+	var f := pos + step
+	var out: Array[Vector2i] = [f]
+	if map.get_tile(f.x, f.y) == "c":
+		out.append(f + step)
+	return out
+
+
 func _interact() -> bool:
 	var f := _facing_tile()
-	for n in map.npcs:
-		if n.x == f.x and n.y == f.y:
+	for t in _talk_tiles():
+		for n in map.npcs:
+			if n.x != t.x or n.y != t.y:
+				continue
 			if not n.get("sign", false) and n.has("dir"):
 				n["dir"] = _opposite(facing)
 			# NPCs placed in the map editor carry a key, not the words themselves
@@ -276,26 +297,43 @@ func _check_encounter() -> void:
 
 # ---------------------------------------------------------------- message --
 
+## On to the next line, and when the words run out, whatever the words were
+## leading up to -- the shop, the inn bill, the boss walking in.
+##
+## Split out of the input handler so a test can walk a whole conversation to its
+## end without pretending to be a keyboard. What it opens onto is the part worth
+## testing and was the part nothing tested.
+func advance() -> void:
+	if msg == null:
+		return
+	msg.i += 1
+	msg.tick = 0.0
+	if msg.i < msg.lines.size():
+		return
+	var m = msg
+	msg = null
+	if m.on_done != null:
+		m.on_done.call()
+	elif m.npc != null and m.npc.has("shop"):
+		open_shop.emit(m.npc.shop)
+	elif m.npc != null and m.npc.has("inn"):
+		open_inn.emit(m.npc.inn)
+
+
 func _update_msg(dt: float) -> void:
 	msg.tick += dt
+	# somebody with nothing to say still has to be got past, or the box that
+	# opened on them never closes and the game stops
+	if msg.lines.is_empty():
+		advance()
+		return
 	var full: String = msg.lines[msg.i]
 	var shown := int(msg.tick / 0.014)
-	var ok := Input.is_action_just_pressed("ui_ok")
-	if ok:
+	if Input.is_action_just_pressed("ui_ok"):
 		if shown < full.length():
 			msg.tick = full.length() * 0.014 + 0.01
 		else:
-			msg.i += 1
-			msg.tick = 0.0
-			if msg.i >= msg.lines.size():
-				var m = msg
-				msg = null
-				if m.on_done != null:
-					m.on_done.call()
-				elif m.npc != null and m.npc.has("shop"):
-					open_shop.emit(m.npc.shop)
-				elif m.npc != null and m.npc.has("inn"):
-					open_inn.emit(m.npc.inn)
+			advance()
 
 
 # ------------------------------------------------------------------- draw --

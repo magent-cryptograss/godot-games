@@ -14,6 +14,7 @@ var end_lines: PackedStringArray = PackedStringArray()
 var shop_list: Array = []
 var shop_sel := 0
 var shop_note := ""
+var shop_pane: Node2D = null
 var repeat_t := {}
 var _was_click := false
 var fade := 0.0
@@ -26,6 +27,10 @@ const BATTLE := preload("res://scenes/Battle.tscn")
 const LEVELUP := preload("res://scenes/LevelUp.tscn")
 const MENU := preload("res://scenes/Menu.tscn")
 const MAPEDIT := preload("res://scenes/MapEditor.tscn")
+# preloaded rather than referred to by class_name: a brand-new script is not in
+# the class cache until something rescans the project, and a headless run never
+# does -- which shows up as Main failing to parse rather than as a missing file
+const OVERLAY := preload("res://scripts/Overlay.gd")
 
 var menu: Node2D = null
 
@@ -170,6 +175,24 @@ func _on_shop(list: Array) -> void:
 	shop_sel = 0
 	shop_note = ""
 	state = S.SHOP
+	# on top of the shop floor, not underneath it -- and the floor stops running
+	# while you are at the counter, or you go on walking and meeting monsters
+	# behind a screen you are reading
+	if current != null:
+		current.set_process(false)
+	if shop_pane == null:
+		shop_pane = OVERLAY.new()
+		shop_pane.painter = _draw_shop
+		add_child(shop_pane)
+
+
+func _close_shop() -> void:
+	if shop_pane != null:
+		shop_pane.queue_free()
+		shop_pane = null
+	if current != null:
+		current.set_process(true)
+	state = S.FIELD
 
 
 func _on_inn(price: int) -> void:
@@ -294,24 +317,31 @@ func _title_pick() -> void:
 			title_sel = 0
 
 
+## Buy whatever the cursor is on, if there is the coin for it.
+func _buy() -> void:
+	if shop_sel < 0 or shop_sel >= shop_list.size():
+		return
+	var id: String = shop_list[shop_sel]
+	var it: Dictionary = Data.ITEMS[id]
+	if Game.player.gold < it.price:
+		Audio.sfx("error")
+		shop_note = "Not enough coin."
+		return
+	Game.player.gold -= int(it.price)
+	Game.player.items[id] = Game.player.items.get(id, 0) + 1
+	Audio.sfx("confirm")
+	shop_note = "Bought " + it.name + "."
+
+
 func _up_shop(dt: float) -> void:
 	var n := shop_list.size()
 	if repeated("move_up", dt): shop_sel = wrapi(shop_sel - 1, 0, n)
 	if repeated("move_down", dt): shop_sel = wrapi(shop_sel + 1, 0, n)
 	if Input.is_action_just_pressed("ui_ok"):
-		var id: String = shop_list[shop_sel]
-		var it: Dictionary = Data.ITEMS[id]
-		if Game.player.gold < it.price:
-			Audio.sfx("error")
-			shop_note = "Not enough coin."
-		else:
-			Game.player.gold -= it.price
-			Game.player.items[id] = Game.player.items.get(id, 0) + 1
-			Audio.sfx("confirm")
-			shop_note = "Bought " + it.name + "."
+		_buy()
 	elif Input.is_action_just_pressed("ui_back"):
 		Audio.sfx("cancel")
-		state = S.FIELD
+		_close_shop()
 
 
 func _up_ending(dt: float) -> void:
@@ -328,7 +358,6 @@ func _up_ending(dt: float) -> void:
 func _draw() -> void:
 	match state:
 		S.TITLE: _draw_title()
-		S.SHOP: _draw_shop()
 		S.ENDING: _draw_ending()
 	if fade > 0.0:
 		UI.rect(self, 0, 0, UI.SCREEN_W, UI.SCREEN_H, Color(0, 0, 0, fade))
@@ -378,30 +407,51 @@ func _draw_big_title(word: String, cx: float, cy: float) -> void:
 			{"scale": 3, "shadow": false})
 
 
-func _draw_shop() -> void:
-	UI.rect(self, 0, 0, UI.SCREEN_W, UI.SCREEN_H, Color("#0a0714"))
-	UI.window(self, 12, 20, 296, 200)
-	PixelFont.draw(self, "Supplies", Vector2(22, 26), UI.COL_TEXT, {"outline": UI.COL_INK})
-	PixelFont.draw_right(self, "Coin %d" % Game.player.gold, 298, 26, UI.COL_GOLD)
+## Painted by the overlay pane, into the pane -- not into Main.
+func _draw_shop(ci: CanvasItem) -> void:
+	# The shop floor stays visible behind a scrim rather than being blacked out.
+	# You are standing at a counter talking to somebody; blanking the room turns
+	# that into an abstract menu that arrived from nowhere.
+	UI.rect(ci, 0, 0, UI.SCREEN_W, UI.SCREEN_H, Color(0.04, 0.03, 0.08, 0.72))
+
+	# Laid out from the screen size rather than from the numbers this was born
+	# with. It was written for a 320x240 window and never moved when the window
+	# became 800x600, so it sat in the top-left corner like a postage stamp.
+	var w := 560.0
+	var h := 400.0
+	var x := (UI.SCREEN_W - w) / 2.0
+	var y := (UI.SCREEN_H - h) / 2.0
+	var pad := 20.0
+	var big := {"scale": 2}
+	UI.window(ci, x, y, w, h)
+	PixelFont.draw(ci, "Supplies", Vector2(x + pad, y + pad),
+		UI.COL_TEXT, {"outline": UI.COL_INK, "scale": 2})
+	PixelFont.draw_right(ci, "Coin %d" % Game.player.gold, x + w - pad, y + pad,
+		UI.COL_GOLD, big)
+
+	var row_y := y + 64.0
 	for i in shop_list.size():
 		var id: String = shop_list[i]
 		var it: Dictionary = Data.ITEMS[id]
-		var y := 52 + i * 16
+		var ry := row_y + i * 30.0
 		var sel := i == shop_sel
 		if sel:
-			UI.cursor(self, 22, y, t)
+			UI.cursor(ci, x + pad, ry + 4, t)
 		var afford: bool = Game.player.gold >= it.price
-		PixelFont.draw(self, it.name, Vector2(38, y),
-			UI.COL_GOLD if sel else (Color("#d8d0e8") if afford else Color("#6a6480")))
-		PixelFont.draw_right(self, str(it.price), 250, y,
-			Color("#c0b8d8") if afford else Color("#6a6480"))
+		PixelFont.draw(ci, it.name, Vector2(x + pad + 32, ry),
+			UI.COL_GOLD if sel else (Color("#d8d0e8") if afford else Color("#6a6480")), big)
+		PixelFont.draw_right(ci, str(it.price), x + w - 110, ry,
+			Color("#c0b8d8") if afford else Color("#6a6480"), big)
 		var have: int = Game.player.items.get(id, 0)
 		if have > 0:
-			PixelFont.draw_right(self, "x%d" % have, 292, y, UI.COL_FAINT)
+			PixelFont.draw_right(ci, "x%d" % have, x + w - pad, ry, UI.COL_FAINT, big)
+
 	if shop_sel < shop_list.size():
-		PixelFont.draw(self, Data.ITEMS[shop_list[shop_sel]].desc, Vector2(22, 192), UI.COL_DIM)
-	PixelFont.draw(self, shop_note if shop_note != "" else "Z to buy,  X to leave",
-		Vector2(22, 206), UI.COL_GREEN if shop_note != "" else UI.COL_FAINT)
+		PixelFont.draw(ci, Data.ITEMS[shop_list[shop_sel]].desc,
+			Vector2(x + pad, y + h - 62), UI.COL_DIM, big)
+	PixelFont.draw(ci, shop_note if shop_note != "" else "Z to buy,  X to leave",
+		Vector2(x + pad, y + h - 34),
+		UI.COL_GREEN if shop_note != "" else UI.COL_FAINT, big)
 
 
 func _draw_ending() -> void:

@@ -216,6 +216,61 @@ func _audit() -> void:
 				stuck += 1
 	_expect(stuck == 0, "every town door can be walked to from the gate")
 
+	# ---- and everybody can be spoken to ------------------------------------
+	#
+	# The flow test proved the shop screen worked by calling _on_shop() itself,
+	# which is the one step in the chain that was never in doubt. Meanwhile every
+	# shopkeeper in the game stood behind a solid counter with no way round it:
+	# you could walk in, stand at the counter, press the button and get nothing.
+	# An NPC nobody can reach is furniture.
+	var mute := 0
+	var first_mute := ""
+	for id in maps:
+		var m: Maps.GameMap = maps[id]
+		if m.npcs.is_empty():
+			continue
+		# from where the player actually arrives -- a square being walkable is not
+		# the same as the player being able to get to it, which is the whole shape
+		# of this bug: the floor behind the counter was walkable and sealed
+		var r := _flood(m, m.start if id != "world" else World.town_gate)
+		for n in m.npcs:
+			if _talkable(m, r, Vector2i(int(n.x), int(n.y))):
+				continue
+			mute += 1
+			if first_mute == "":
+				first_mute = "%s at %d,%d in %s" % [
+					str(n.get("look", n.get("sign", "sign"))), int(n.x), int(n.y), id]
+			print("    unreachable: %s %d,%d in %s" % [
+				str(n.get("look", "sign")), int(n.x), int(n.y), id])
+	_expect(mute == 0, "every NPC can be spoken to (%d cannot, first %s)" % [mute, first_mute])
+
+
+## Is there anywhere the player could stand and talk to whoever is on this tile?
+##
+## Standing beside them is the ordinary way. Across a counter is the other one --
+## a counter is solid and is meant to be, so the keeper behind it is reached
+## through it, from two squares away in a straight line.
+func _talkable(m: Maps.GameMap, r: Reach, at: Vector2i) -> bool:
+	for step in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var beside: Vector2i = at + step
+		if _standable(m, r, beside):
+			return true
+		if m.get_tile(beside.x, beside.y) == "c" and _standable(m, r, beside + step):
+			return true
+	return false
+
+
+## Could the player be on this square? It has to be somewhere they can walk to,
+## and not somewhere somebody else is standing -- two NPCs side by side cannot be
+## used to reach each other.
+func _standable(m: Maps.GameMap, r: Reach, p: Vector2i) -> bool:
+	if not r.has(p):
+		return false
+	for other in m.npcs:
+		if int(other.x) == p.x and int(other.y) == p.y:
+			return false
+	return true
+
 
 ## Flood fill over a flat byte buffer. The old version kept a Dictionary keyed
 ## by Vector2i, which allocated an object per visited tile -- fine at 5,000
