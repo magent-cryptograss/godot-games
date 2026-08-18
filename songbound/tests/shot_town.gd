@@ -20,8 +20,30 @@ func _ready() -> void:
 	World.build_all()
 	field = preload("res://scenes/Field.tscn").instantiate()
 	add_child(field)
-	field.enter("world", _find_reflection())
+	field.enter("world", _find_tall_grass())
 	field.msg = null
+	print("  standing on '%s' at %s" % [
+		World.build_all()["world"].get_tile(field.pos.x, field.pos.y), field.pos])
+
+
+## A deep patch of tall grass, so the blades drawn over the figure can be judged
+## rather than guessed at.
+func _find_tall_grass() -> Vector2i:
+	var m: Maps.GameMap = World.build_all()["world"]
+	for y in range(20, m.h - 20, 2):
+		for x in range(20, m.w - 20, 2):
+			if m.get_tile(x, y) != ",":
+				continue
+			var deep := 0
+			for dy in range(-2, 3):
+				for dx in range(-2, 3):
+					if m.get_tile(x + dx, y + dy) == ",":
+						deep += 1
+			if deep >= 22:
+				print("  tall grass at %d,%d" % [x, y])
+				return Vector2i(x, y)
+	print("  NO TALL GRASS FOUND -- falling back to the town")
+	return World.town_gate
 
 
 ## Water with something standing on its bank, which is the only place a

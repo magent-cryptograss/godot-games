@@ -439,11 +439,11 @@ func _draw() -> void:
 				if drawn.size() > 0:
 					UI.sprite(self, drawn, px, py, 1, false, false, 0, null, look,
 						_light_at(pos.x, pos.y))
-					_draw_grass_over(pos.x, pos.y, cam)
+					_draw_grass_over(px, py, cam)
 				else:
 					UI.sprite(self, p.view(facing), px, py, 1, false, walking, frame,
 						null, look, _light_at(pos.x, pos.y))
-				_draw_grass_over(pos.x, pos.y, cam)
+				_draw_grass_over(px, py, cam)
 
 	if _is_cave():
 		_draw_cave_light(cam)
@@ -492,25 +492,27 @@ func _draw_tiles(cam: Vector2) -> void:
 ## The front of a tall-grass square, drawn over whoever is standing in it, so
 ## they are in the grass rather than on top of it. Only the near blades: the
 ## whole tile drawn over a figure would bury them.
-func _draw_grass_over(tx: int, ty: int, cam: Vector2) -> void:
-	if map.get_tile(tx, ty) != ",":
-		return
-	var tex: Array = Maps.textures().get(",", [])
-	if tex.is_empty():
-		return
-	var rt: Texture2D = tex[Maps.variant_of(tx, ty, tex.size())]
-	var band := 20
-	var sx := tx * TS - cam.x
-	var sy := ty * TS - cam.y
-	draw_texture_rect_region(rt, Rect2(sx, sy + TS - band, TS, band),
-		Rect2(0, TS - band, TS, band))
-	# and a few blades pushed aside, leaning away from where the feet are
-	for i in 6:
-		var h := Maps.hash2(tx * 5 + i, ty)
-		var bx := sx + 4.0 + h * float(TS - 8)
-		var lean := sin(t * 3.0 + h * 6.0) * 2.0 + (3.0 if h > 0.5 else -3.0)
-		UI.rect(self, bx + lean, sy + TS - 16, 1, 8, Color("#2a4f2e"))
-		UI.rect(self, bx + lean, sy + TS - 16, 1, 3, Color("#5f9663"))
+func _draw_grass_over(px: float, py: float, cam: Vector2) -> void:
+	# the square the soles are in, and any the figure straddles mid-step
+	var foot_y: float = py + float(Sprites.H) - 5.0
+	var ty := int(floor((foot_y + cam.y) / float(TS)))
+	var first := int(floor((px + cam.x) / float(TS)))
+	var last := int(floor((px + float(Sprites.W) - 1.0 + cam.x) / float(TS)))
+	for tx in range(first, last + 1):
+		if map.get_tile(tx, ty) != ",":
+			continue
+		var bx0: float = float(tx * TS) - cam.x
+		var by0: float = float(ty * TS) - cam.y
+		for i in 24:
+			var h := Maps.hash2(tx * 7 + i, ty * 3 + i)
+			var bh: float = 18.0 + Maps.hash2(tx + i, ty * 9 + i) * 13.0
+			var sway := sin(t * 1.6 + h * 8.0) * 1.3
+			var bx: float = bx0 + 1.0 + h * float(TS - 3) + sway
+			var top: float = by0 + float(TS) - bh
+			UI.rect(self, bx, top, 2, bh, Color("#2a4f2e"))
+			UI.rect(self, bx, top, 2, 6, Color("#46764a"))
+			UI.rect(self, bx, top, 2, 3, Color("#5f9663"))
+			UI.rect(self, bx, top, 1, 2, Color("#74ad75"))
 
 
 ## The light where somebody is standing: cool and a little darker if something
