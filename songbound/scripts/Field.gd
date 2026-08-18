@@ -367,6 +367,7 @@ func _draw() -> void:
 		match item.kind:
 			"tile":
 				var ch2 := map.get_tile(item.tx, item.ty)
+				_draw_side_wall(item.tx, item.ty, cam, ch2)
 				# A door you are standing at stands open: the panel goes dark and
 				# a little of the light inside falls out across the step. A door
 				# that never opens is a picture of a door painted on a wall.
@@ -385,9 +386,22 @@ func _draw() -> void:
 				if over > 0:
 					var tall: Array = Maps.tall_textures().get(ch2, [])
 					if not tall.is_empty():
-						draw_texture_rect(tall[Maps.variant_of(item.tx, item.ty, tall.size())],
-							Rect2(item.tx * TS - cam.x, item.ty * TS - cam.y - over,
-								TS, TS + over), false)
+						var rt2: Texture2D = tall[Maps.variant_of(item.tx, item.ty, tall.size())]
+						var tsx: float = float(item.tx * TS) - cam.x
+						var tsy: float = float(item.ty * TS) - cam.y - float(over)
+						var full: int = TS + over
+						# three bands, the upper ones pushed further, so the crown
+						# moves and the trunk does not. Out of phase by position,
+						# or a wood breathes as one object.
+						var ph := float(item.tx) * 0.7 + float(item.ty) * 0.4
+						for b in 3:
+							var y0b := int(float(full) * float(b) / 3.0)
+							var y1b := int(float(full) * float(b + 1) / 3.0)
+							var lean := sin(t * 1.1 + ph) * (1.8 - float(b) * 0.8)
+							draw_texture_rect_region(rt2,
+								Rect2(tsx + lean, tsy + y0b, TS, y1b - y0b),
+								Rect2(0, y0b, TS, y1b - y0b))
+						_draw_base_shade(tsx, float(item.ty * TS) - cam.y)
 				else:
 					var arr2: Array = tex.get(ch2, [])
 					if not arr2.is_empty():
@@ -452,6 +466,7 @@ func _draw() -> void:
 						null, look, _light_at(pos.x, pos.y))
 				_draw_grass_over(px, py, cam)
 
+	_draw_air()
 	if _is_cave():
 		_draw_cave_light(cam)
 	elif map.indoor:
@@ -562,6 +577,35 @@ func _blend_edges(tx: int, ty: int, sx: float, sy: float, ch: String) -> void:
 				1: UI.rect(self, sx, sy + i, d, 1, col)
 				2: UI.rect(self, sx + i, sy + TS - d, 1, d, col)
 				3: UI.rect(self, sx + i, sy, 1, d, col)
+
+
+## The narrow return down the right-hand edge of a building: the side of the box
+## rather than only its front. Drawn beyond the tile, which is where a side wall
+## would actually be seen from this angle.
+func _draw_side_wall(tx: int, ty: int, cam: Vector2, ch: String) -> void:
+	if not ["W", "n", "R", "V"].has(ch):
+		return
+	if ["W", "n", "R", "V", "d"].has(map.get_tile(tx + 1, ty)):
+		return                                   # not the edge of the building
+	var sx := float(tx * TS) - cam.x + float(TS)
+	var sy := float(ty * TS) - cam.y
+	var w := 9
+	var body := Color("#8f7d5f") if ch == "W" or ch == "n" else Color("#71291f")
+	var lit := body.lightened(0.12)
+	UI.rect(self, sx, sy, w, TS, body)
+	UI.rect(self, sx, sy, 2, TS, lit)
+	UI.rect(self, sx + w - 2, sy, 2, TS, body.darkened(0.3))
+	# the roof's return is capped, so the eaves read as overhanging the side too
+	if ch == "R" or ch == "V":
+		UI.rect(self, sx, sy, w, 3, body.lightened(0.3))
+	UI.rect(self, sx, sy + TS - 2, w, 2, Color(0, 0, 0, 0.3))
+
+
+## The dark line exactly where something meets the earth. The cast shadow lies
+## beside an object; without this it hovers a little above its own shadow.
+func _draw_base_shade(sx: float, sy: float) -> void:
+	UI.rect(self, sx + 6, sy + TS - 4, TS - 12, 3, Color(0, 0, 0, 0.30))
+	UI.rect(self, sx + 3, sy + TS - 2, TS - 6, 2, Color(0, 0, 0, 0.22))
 
 
 ## The vertical face on the lower edge of high ground. A mountain seen from
@@ -754,6 +798,27 @@ func _draw_chest(x: float, y: float, opened: bool) -> void:
 		UI.rect(self, x + 2, y + 6, 12, 3, Color("#a87a48"))
 		UI.rect(self, x + 2, y + 9, 12, 1, Color("#5a3a1e"))
 		UI.rect(self, x + 7, y + 9, 2, 3, Color("#f0d040"))
+
+
+## Distance haze and a foreground, in that order: the wash sits over the world
+## and the leaves sit over the wash, because they are meant to be the nearest
+## thing on screen.
+func _draw_air() -> void:
+	if map.indoor:
+		return
+	# paler and cooler toward the top, which an eye reads as further off
+	for i in 14:
+		var f := float(i) / 14.0
+		var h := int(float(UI.SCREEN_H) * 0.42)
+		UI.rect(self, 0, int(f * float(h)), UI.SCREEN_W, int(float(h) / 14.0) + 1,
+			Color(0.74, 0.82, 0.95, 0.085 * (1.0 - f)))
+	# and darker toward every edge, which frames the middle as the middle
+	for i in 10:
+		var a := 0.05 * (1.0 - float(i) / 10.0)
+		UI.rect(self, 0, i * 2, UI.SCREEN_W, 2, Color(0, 0, 0, a))
+		UI.rect(self, 0, UI.SCREEN_H - 2 - i * 2, UI.SCREEN_W, 2, Color(0, 0, 0, a))
+		UI.rect(self, i * 2, 0, 2, UI.SCREEN_H, Color(0, 0, 0, a))
+		UI.rect(self, UI.SCREEN_W - 2 - i * 2, 0, 2, UI.SCREEN_H, Color(0, 0, 0, a))
 
 
 func _draw_hud() -> void:
