@@ -20,10 +20,32 @@ func _ready() -> void:
 	World.build_all()
 	field = preload("res://scenes/Field.tscn").instantiate()
 	add_child(field)
-	# the town, which has a ring of trees round it -- the cliff finder is kept
-	# below for when the rock faces are what needs looking at
-	field.enter("world", World.town_gate + Vector2i(0, -3))
+	field.enter("world", _find_reflection())
 	field.msg = null
+
+
+## Water with something standing on its bank, which is the only place a
+## reflection can be seen. Hunted for rather than named: the last two times a
+## coordinate was picked by hand it photographed the wrong country entirely.
+func _find_reflection() -> Vector2i:
+	var m: Maps.GameMap = World.build_all()["world"]
+	for y in range(20, m.h - 20, 2):
+		for x in range(20, m.w - 20, 2):
+			if m.get_tile(x, y) != "~":
+				continue
+			var banked := 0
+			for dx in range(-3, 4):
+				if Maps.is_tall(m.get_tile(x + dx, y - 1)):
+					banked += 1
+			if banked < 3:
+				continue
+			# and somewhere to stand while looking at it
+			for dy in range(1, 4):
+				if not Maps.is_solid(m.get_tile(x, y + dy)):
+					print("  reflection at %d,%d" % [x, y])
+					return Vector2i(x, y + dy)
+	print("  NO REFLECTION FOUND -- falling back to the town")
+	return World.town_gate
 
 
 ## Somewhere with a cliff edge in shot: high ground with walkable ground under

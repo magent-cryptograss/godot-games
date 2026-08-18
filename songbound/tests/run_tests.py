@@ -33,6 +33,14 @@ ERROR_MARKERS = re.compile(
     r"Cannot call method|Nonexistent function|Trying to assign|"
     r"Attempt to call|out of bounds", re.I)
 
+# How long a scene may take before it is presumed hung. A script that fails to
+# parse loads as a bare node that does nothing, so the scene never reaches its
+# own quit and runs until something kills it -- that has to be cheap to
+# discover. The soak is the one scene whose work is honestly measured in
+# minutes: it fights six hundred battles.
+DEADLINE = 240
+LONG_DEADLINE = {"TestPlaythrough": 900}
+
 # What a scene prints to say it got to the end. Screenshot scenes have no
 # assertions to pass, so they say they saved their pictures instead -- without
 # that, a scene that worked perfectly and a scene that died silently looked
@@ -55,9 +63,14 @@ def run(name):
     else:
         cmd.insert(1, "--headless")
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=1200)
+        # A script that fails to parse loads as a bare node that does nothing,
+        # so the scene never reaches its own quit and runs until something kills
+        # it. Twenty minutes of that eats a whole run and reports nothing; a
+        # scene that has not finished in four is broken.
+        r = subprocess.run(cmd, capture_output=True, text=True,
+                           timeout=LONG_DEADLINE.get(name, DEADLINE))
     except subprocess.TimeoutExpired:
-        return name, "TIMED OUT", []
+        return name, "TIMED OUT (after %ds)" % LONG_DEADLINE.get(name, DEADLINE), []
     text = r.stdout + r.stderr
     noise = [l.strip() for l in text.splitlines() if ERROR_MARKERS.search(l)]
     failed = [l.strip() for l in text.splitlines() if l.strip().startswith("FAIL")]

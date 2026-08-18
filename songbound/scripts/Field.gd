@@ -367,6 +367,20 @@ func _draw() -> void:
 		match item.kind:
 			"tile":
 				var ch2 := map.get_tile(item.tx, item.ty)
+				# A door you are standing at stands open: the panel goes dark and
+				# a little of the light inside falls out across the step. A door
+				# that never opens is a picture of a door painted on a wall.
+				if ch2 == "d":
+					var near: int = absi(item.tx - pos.x) + absi(item.ty - pos.y)
+					if near <= 1:
+						var dx0: float = float(item.tx) * TS - cam.x
+						var dy0: float = float(item.ty) * TS - cam.y
+						UI.rect(self, dx0 + 9, dy0 + 15, 30, 33, Color("#160f14"))
+						UI.rect(self, dx0 + 9, dy0 + 15, 30, 3, Color("#0b0709"))
+						UI.rect(self, dx0 + 11, dy0 + 40, 26, 8, Color("#3a2a1c"))
+						for gi in 5:
+							UI.rect(self, dx0 + 12 + gi * 5, dy0 + 44 - gi, 4, 4,
+								Color(0.98, 0.86, 0.55, 0.16 - gi * 0.02))
 				var over := Maps.overhang(ch2)
 				if over > 0:
 					var tall: Array = Maps.tall_textures().get(ch2, [])
@@ -425,9 +439,11 @@ func _draw() -> void:
 				if drawn.size() > 0:
 					UI.sprite(self, drawn, px, py, 1, false, false, 0, null, look,
 						_light_at(pos.x, pos.y))
+					_draw_grass_over(pos.x, pos.y, cam)
 				else:
 					UI.sprite(self, p.view(facing), px, py, 1, false, walking, frame,
 						null, look, _light_at(pos.x, pos.y))
+				_draw_grass_over(pos.x, pos.y, cam)
 
 	if _is_cave():
 		_draw_cave_light(cam)
@@ -471,6 +487,30 @@ func _draw_tiles(cam: Vector2) -> void:
 			if ch == "^":
 				_draw_cliff(tx, ty, sx, sy, ch)
 			_tile_edges(tx, ty, sx, sy, ch)
+
+
+## The front of a tall-grass square, drawn over whoever is standing in it, so
+## they are in the grass rather than on top of it. Only the near blades: the
+## whole tile drawn over a figure would bury them.
+func _draw_grass_over(tx: int, ty: int, cam: Vector2) -> void:
+	if map.get_tile(tx, ty) != ",":
+		return
+	var tex: Array = Maps.textures().get(",", [])
+	if tex.is_empty():
+		return
+	var rt: Texture2D = tex[Maps.variant_of(tx, ty, tex.size())]
+	var band := 20
+	var sx := tx * TS - cam.x
+	var sy := ty * TS - cam.y
+	draw_texture_rect_region(rt, Rect2(sx, sy + TS - band, TS, band),
+		Rect2(0, TS - band, TS, band))
+	# and a few blades pushed aside, leaning away from where the feet are
+	for i in 6:
+		var h := Maps.hash2(tx * 5 + i, ty)
+		var bx := sx + 4.0 + h * float(TS - 8)
+		var lean := sin(t * 3.0 + h * 6.0) * 2.0 + (3.0 if h > 0.5 else -3.0)
+		UI.rect(self, bx + lean, sy + TS - 16, 1, 8, Color("#2a4f2e"))
+		UI.rect(self, bx + lean, sy + TS - 16, 1, 3, Color("#5f9663"))
 
 
 ## The light where somebody is standing: cool and a little darker if something
@@ -586,6 +626,24 @@ func _draw_water(cam: Vector2) -> void:
 				continue
 			var sx := tx * TS - cam.x
 			var sy := ty * TS - cam.y
+
+			# What stands on the bank, upside down in the water. Drawn in
+			# horizontal slices so each one can be pushed sideways a little,
+			# which is what makes it read as a reflection on moving water
+			# rather than a second object hanging underneath the first.
+			var above := map.get_tile(tx, ty - 1)
+			if Maps.is_tall(above):
+				var src: Array = Maps.tall_textures().get(above, Maps.textures().get(above, []))
+				if not src.is_empty():
+					var rt: Texture2D = src[Maps.variant_of(tx, ty - 1, src.size())]
+					var sh := rt.get_height()
+					for i in range(0, TS, 2):
+						var wob := sin(t * 1.8 + float(i) * 0.22 + float(tx)) * 1.6
+						var fade := 0.42 - float(i) / float(TS) * 0.3
+						draw_texture_rect_region(rt,
+							Rect2(sx + wob, sy + i, TS, 2),
+							Rect2(0, sh - 2 - i, TS, 2),
+							Color(0.55, 0.72, 0.95, fade))
 
 			# two highlight bands drifting down the tile at different speeds,
 			# offset per tile so the surface does not pulse as one sheet
