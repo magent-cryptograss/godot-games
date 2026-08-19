@@ -103,6 +103,9 @@ func _ready() -> void:
 	for a in OS.get_cmdline_user_args():
 		if a == "--autotest":
 			_auto = true
+		if a == "--portrait":
+			_auto = true
+			_portrait_only = true
 	if _auto:
 		stock_count = 3
 		cpu_level = 2
@@ -437,6 +440,7 @@ func land_puff(pos: Vector2) -> void:
 #     godot --path smash16 -- --autotest
 # ===========================================================================
 var _auto := false
+var _portrait_only := false
 var _fc := 0
 var force_both_cpu := false
 
@@ -444,23 +448,67 @@ const _PLAN := {
 	20:   "shot_10_title",
 	26:   "go_select",
 	70:   "shot_20_select",
-	76:   "go_fight",
-	250:  "shot_30_countdown",
-	500:  "shot_40_fight",
-	900:  "shot_50_fight",
-	1400: "shot_60_fight",
-	2000: "shot_70_fight",
-	2700: "shot_80_fight",
+	80:   "portrait_on",
+	120:  "shot_15_portrait",
+	126:  "portrait_off",
+	140:  "go_fight",
+	330:  "shot_30_countdown",
+	560:  "shot_40_fight",
+	960:  "shot_50_fight",
+	1460: "shot_60_fight",
+	2060: "shot_70_fight",
+	2760: "shot_80_fight",
 	4200: "quit",
 }
 
+# Which fighters to blow up for the portrait shot, and where to stand them.
+const _PORTRAIT := [3, 5]
+
 var _got_result := false
+
+
+func _portrait_on() -> void:
+	# Blow a few fighters up so their art can actually be judged -- at 15
+	# pixels tall you cannot tell a good sprite from a bad one.
+	ui.visible = false
+	var n := _PORTRAIT.size()
+	for i in previews.size():
+		previews[i].visible = _PORTRAIT.has(i)
+	for k in n:
+		var pv = previews[_PORTRAIT[k]]
+		pv.scale = Vector2(5.0, 5.0)
+		pv.position = Vector2(float(Rules.VW) * (float(k) + 0.5) / float(n), 195.0)
+
+
+func _portrait_off() -> void:
+	ui.visible = true
+	for i in previews.size():
+		previews[i].visible = true
+		previews[i].scale = Vector2.ONE
+		previews[i].position = _cell_center(i) + Vector2(0, 17)
 
 
 func _process(_d: float) -> void:
 	if not _auto:
 		return
 	_fc += 1
+
+	# Portrait-only mode renders ~35 frames instead of 4200, which matters a
+	# lot when something else on the box is hogging the CPU.
+	if _portrait_only:
+		if _fc == 4:
+			_goto_select()
+		elif _fc == 10:
+			_portrait_on()
+		elif _fc == 30:
+			_capture("shot_15_portrait")
+		elif _fc == 45:
+			get_tree().quit()
+		else:
+			for f in previews:
+				f.anim += 1.0
+				f.queue_redraw()
+		return
 
 	if screen == Screen.RESULT and not _got_result and result_t > 40:
 		_got_result = true
@@ -477,9 +525,13 @@ func _process(_d: float) -> void:
 	var act: String = _PLAN[_fc]
 	if act == "go_select":
 		_goto_select()
+	elif act == "portrait_on":
+		_portrait_on()
+	elif act == "portrait_off":
+		_portrait_off()
 	elif act == "go_fight":
 		force_both_cpu = true
-		sel = [0, 8]           # Mega Man X vs Zero
+		sel = [3, 5]           # Kirby vs Mario
 		stock_count = 2
 		_start_match()
 	elif act == "quit":

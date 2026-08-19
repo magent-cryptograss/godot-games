@@ -416,9 +416,12 @@ func _check_hits(m: Dictionary, foes: Array) -> void:
 # BOXES
 # ===========================================================================
 func hurtbox() -> Rect2:
+	# Most fighters are a tall narrow rectangle, but Kirby is a wide ball and
+	# Yoshi is egg-shaped. Without these, attacks that visibly connect with
+	# Kirby sail straight through him.
 	var sc := float(ch["size"])
-	var hw := 6.0 * sc
-	var hh := 22.0 * sc
+	var hw := 6.0 * sc * float(ch.get("hurt_w", 1.0))
+	var hh := 22.0 * sc * float(ch.get("hurt_h", 1.0))
 	if state == "crouch" or state == "shield":
 		hh *= 0.78
 	return Rect2(position.x - hw, position.y - hh, hw * 2.0, hh)

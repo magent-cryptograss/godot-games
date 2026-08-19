@@ -53,6 +53,30 @@ static func disc_o(c: CanvasItem, cx: float, cy: float, r: float,
 	disc(c, cx, cy, r, fill)
 
 
+# A pixel-perfect filled ellipse. Kirby is made almost entirely of these --
+# his eyes, his feet and his blush are all ovals, not circles.
+static func ellipse(c: CanvasItem, cx: float, cy: float, rx: float, ry: float,
+		col: Color) -> void:
+	var ri := int(round(ry))
+	if ri <= 0 or rx <= 0.0:
+		px(c, cx - rx, cy, maxf(1.0, rx * 2.0), 1, col)
+		return
+	for dy in range(-ri, ri + 1):
+		var q := 1.0 - float(dy * dy) / (ry * ry)
+		if q <= 0.0:
+			continue
+		var dx := int(floor(rx * sqrt(q)))
+		if dx <= 0:
+			continue
+		c.draw_rect(Rect2(round(cx) - dx, round(cy) + dy, dx * 2, 1), col)
+
+
+static func ellipse_o(c: CanvasItem, cx: float, cy: float, rx: float, ry: float,
+		fill: Color, dark: Color) -> void:
+	ellipse(c, cx, cy, rx + 1.0, ry + 1.0, dark)
+	ellipse(c, cx, cy, rx, ry, fill)
+
+
 # A chunky limb: stepped squares, so it stays hard-edged at any angle.
 static func limb(c: CanvasItem, a: Vector2, b: Vector2, th: float,
 		col: Color, dark: Color) -> void:
@@ -384,44 +408,100 @@ static func _eyes(f: Fighter, P: Dictionary, pal: Dictionary) -> void:
 
 
 static func _draw_ball(f: Fighter, P: Dictionary, pal: Dictionary) -> void:
-	# Kirby: he is basically one big circle, and everything else is small.
+	# KIRBY
+	#
+	# He is one sphere and everything hangs off it. What actually makes him
+	# read as Kirby rather than as a pink ball, in order of how much it matters:
+	#   1. the body is LIT from the upper left with a darker rim along the
+	#      lower right -- a flat pink circle looks like a bouncy ball
+	#   2. the eyes are TALL ovals with the white shine in the TOP half
+	#   3. the feet are big maroon ovals splayed outward, not little discs
+	#   4. the blush is soft and rosy, not a red stripe
 	var s: float = P["s"]
-	var dark: Color = pal["dark"]
-	var r := 9.2 * s
-	var cy: float = -10.5 * s * float(P["squash"])
-
-	# feet first, behind the body
-	_kirby_foot(f, P["foot_a"], s, pal["accent"], dark)
-	_kirby_foot(f, P["foot_b"], s, pal["accent"], dark)
-
-	disc_o(f, 0.0, cy, r, pal["main"], dark)
-	# soft top-left highlight, the way the real sprite is shaded
-	disc(f, -r * 0.32, cy - r * 0.34, r * 0.42, pal["trim"])
-
-	# stubby arms
-	limb(f, Vector2(-r * 0.75, cy), P["hand_a"] * 0.72 + Vector2(0, cy * 0.15),
-		3.0 * s, pal["main"], dark)
-	limb(f, Vector2(r * 0.75, cy), P["hand_b"] * 0.72 + Vector2(0, cy * 0.15),
-		3.2 * s, pal["main"], dark)
-
-	# face
+	var sq: float = float(P["squash"])
 	var fc: float = P["fc"]
-	var ex := 1.4 * s * fc
+	var dark: Color = pal["dark"]
+	var r := 9.0 * s
+	var cy: float = -10.6 * s * sq
+
+	var body: Color = pal["main"]
+	var body_dark: Color = pal["main2"]
+	var blush: Color = body.lerp(pal["accent"], 0.42)
+	var eye_col := Color("26214e")
+
+	# Feet track the run cycle but stay pinned wide apart under the body.
+	var fa := Vector2(clampf(P["foot_a"].x, -7.0 * s, 7.0 * s) - 2.5 * s,
+		minf(P["foot_a"].y, 0.0) - 2.3 * s)
+	var fb := Vector2(clampf(P["foot_b"].x, -7.0 * s, 7.0 * s) + 2.5 * s,
+		minf(P["foot_b"].y, 0.0) - 2.3 * s)
+
+	# back foot, behind the body and shaded down
+	_kirby_foot(f, fa, s, pal["accent"].darkened(0.30), dark, -fc)
+
+	# Body: lay down the dark ball, then the lit pink offset up-and-left. What
+	# is left showing along the lower right IS the shadow -- cheaper and
+	# cleaner than trying to draw a crescent.
+	disc_o(f, 0.0, cy, r, body_dark, dark)
+	disc(f, -r * 0.09, cy - r * 0.11, r * 0.93, body)
+	ellipse(f, -r * 0.36, cy - r * 0.42, r * 0.34, r * 0.24, pal["trim"])
+
+	# Stubby mitts. They point wherever the pose points but stay pinned close
+	# to the body, so he never sprouts human arms.
+	_kirby_arm(f, P["hand_a"], Vector2(0.0, cy), r, s, body_dark, dark)
+	_kirby_arm(f, P["hand_b"], Vector2(0.0, cy), r, s, body, dark)
+
+	# front foot
+	_kirby_foot(f, fb, s, pal["accent"], dark, fc)
+
+	# --- face, shifted toward whichever way he is looking ---
+	var fx := fc * 1.3 * s
+	var ey := cy - 2.9 * s
+	var ex := 2.5 * s
+	var open: bool = f.state == "attack" or f.state == "hitstun" or f.state == "broken"
+
 	if f.state == "hitstun" or f.state == "broken":
-		px(f, ex - 2.0 * s, cy - 2.0 * s, 2.4 * s, 1.2, dark)
-		px(f, ex + 1.4 * s, cy - 2.0 * s, 2.4 * s, 1.2, dark)
+		for sgn in [-1.0, 1.0]:
+			var bx: float = fx + sgn * ex
+			px(f, bx - 1.8 * s, ey - 0.4 * s, 3.6 * s, 1.3, eye_col)
+			px(f, bx - 1.0 * s, ey - 1.7 * s, 2.0 * s, 1.3, eye_col)
 	else:
-		px(f, ex - 2.2 * s, cy - 4.0 * s, 1.8 * s, 4.0 * s, dark)
-		px(f, ex + 1.6 * s, cy - 4.0 * s, 1.8 * s, 4.0 * s, dark)
-		px(f, ex - 2.2 * s, cy - 4.0 * s, 1.8 * s, 1.6 * s, Color(1, 1, 1, 0.9))
-		px(f, ex + 1.6 * s, cy - 4.0 * s, 1.8 * s, 1.6 * s, Color(1, 1, 1, 0.9))
-	# blush
-	px(f, ex - 5.6 * s, cy - 0.6 * s, 2.6 * s, 1.6 * s, pal["accent"])
-	px(f, ex + 3.4 * s, cy - 0.6 * s, 2.6 * s, 1.6 * s, pal["accent"])
+		for sgn2 in [-1.0, 1.0]:
+			var bx2: float = fx + sgn2 * ex
+			ellipse(f, bx2, ey, 1.55 * s, 3.1 * s, eye_col)
+			# The shine belongs in the TOP of the eye. Centre it and he stops
+			# looking like Kirby immediately.
+			ellipse(f, bx2, ey - 1.5 * s, 1.05 * s, 1.25 * s, Color(1, 1, 1, 0.95))
+			ellipse(f, bx2, ey + 2.0 * s, 0.75 * s, 0.7 * s, Color(0.42, 0.53, 0.95, 0.8))
+
+	ellipse(f, fx - 5.9 * s, cy + 0.7 * s, 2.1 * s, 1.35 * s, blush)
+	ellipse(f, fx + 5.9 * s, cy + 0.7 * s, 2.1 * s, 1.35 * s, blush)
+
+	# mouth: a tiny nub normally, open when swinging or hurting
+	if open:
+		ellipse_o(f, fx, cy + 3.1 * s, 1.9 * s, 2.0 * s, Color("8e2a4a"), dark)
+		ellipse(f, fx, cy + 3.9 * s, 1.1 * s, 0.85 * s, Color("e0708e"))
+	else:
+		ellipse(f, fx, cy + 2.5 * s, 1.0 * s, 0.75 * s, eye_col)
 
 
-static func _kirby_foot(f: Fighter, p: Vector2, s: float, col: Color, dark: Color) -> void:
-	disc_o(f, p.x, p.y - 1.6 * s, 2.9 * s, col, dark)
+static func _kirby_foot(f: Fighter, p: Vector2, s: float, col: Color,
+		dark: Color, fc: float) -> void:
+	# Wide oval nudged outward in the direction it points, so the pair splay
+	# apart the way they do in the sprite.
+	var lean := 0.7 * s * signf(fc if absf(fc) > 0.01 else 1.0)
+	ellipse_o(f, p.x + lean, p.y, 4.1 * s, 2.5 * s, col, dark)
+	ellipse(f, p.x - lean * 0.5, p.y - 1.0 * s, 2.0 * s, 0.85 * s, col.lightened(0.30))
+
+
+static func _kirby_arm(f: Fighter, hand: Vector2, centre: Vector2, r: float,
+		s: float, col: Color, dark: Color) -> void:
+	var d := hand - centre
+	if d.length() < 0.1:
+		d = Vector2(-1.0, 0.2)
+	d = d.normalized()
+	var tip := centre + d * r * 1.16
+	limb(f, centre + d * r * 0.55, tip, 3.2 * s, col, dark)
+	disc_o(f, tip.x, tip.y, 2.3 * s, col, dark)
 
 
 static func _draw_dino(f: Fighter, P: Dictionary, pal: Dictionary) -> void:
