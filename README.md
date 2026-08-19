@@ -35,6 +35,13 @@ Tower defense where evil instruments attack the bluegrass stage. Place good inst
 - **Controls:** Mouse only — click to select an instrument, click a square to place it
 - **Play:** https://fibonacci0.hunter.cryptograss.live/games/pickin-defense/index.html
 
+### Smash 16
+A 16-bit platform fighter. You don't drain a health bar — you build up a damage **percent**, and the higher it climbs the further you fly when you get hit. Win by knocking them clean off the screen. Nine fighters (Mega Man X, Samus, Link, Kirby, Fox, Mario, Ness, Yoshi, Zero), each with their own special and recovery. Two players on one keyboard, or fight the CPU.
+
+- **Controls:** P1 — A/D move, W/S aim, SPACE jump, F attack, G special, C shield. P2 — arrows, RSHIFT jump, `.` attack, `/` special, `,` shield
+- **Play:** https://fibonacci0.hunter.cryptograss.live/games/smash16/index.html
+- All art drawn from scratch in `smash16/scripts/Art.gd` — see `smash16/README.md`
+
 ## Notes on web builds
 
 Godot web exports **must be served over HTTPS**. Without a secure context they
